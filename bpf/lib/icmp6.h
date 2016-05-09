@@ -151,7 +151,7 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 	char *upper; /* icmp6 or tcp or udp */
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
         __be32 sum = 0;
-	__u16 payload_len = 0;
+	__u16 payload_len;
 	__u8 icmp6_nexthdr = IPPROTO_ICMPV6;
 	int trimlen = 0;
 
