@@ -14,7 +14,7 @@
  */
 static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr *responder_mac)
 {
-	union macaddr dmac = {};
+	union macaddr dmac;
 	__be32 tip;
 	__be16 arpop;
 
