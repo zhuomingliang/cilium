@@ -2,9 +2,11 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
@@ -78,6 +80,16 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 	return nil
 }
 
+func (d *Daemon) setKNPStatus(prefix, msg string, obj v1beta1.NetworkPolicy) {
+	parentRequest := d.k8sClient.Get().RequestURI("apis/extensions/v1beta1").
+		Namespace("default").Resource("networkpolicies")
+	obj.Annotations[common.K8sAnnotationStatusName] = (prefix + msg)
+	if err := parentRequest.Name(obj.Name).Body(obj).Do().Error(); err != nil {
+		log.Warningf("Unable to send network policy status annotation"+
+			" for policy %q to kubernetes: %s", obj.Name, err)
+	}
+}
+
 func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
 	switch npwe.Type {
 	case watch.Added, watch.Modified:
@@ -87,10 +99,13 @@ func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
 			return
 		}
 		if err := d.PolicyAdd(nodePath, pn); err != nil {
-			log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
+			errMsg := fmt.Sprintf("Error while adding kubernetes network policy %+v: %s", pn, err)
+			log.Errorf(errMsg)
+			d.setKNPStatus(common.ErrorPrefix, errMsg, npwe.Object)
 			return
 		}
 		log.Infof("Kubernetes network policy successfully add %+v", npwe.Object)
+		d.setKNPStatus(common.EnforcedPrefix, "", npwe.Object)
 	case watch.Deleted:
 		nodePath, pn, err := types.K8sNP2CP(npwe.Object)
 		if err != nil {
@@ -98,9 +113,12 @@ func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
 			return
 		}
 		if err := d.PolicyDelete(nodePath); err != nil {
-			log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
+			errMsg := fmt.Sprintf("Error while deleting kubernetes network policy %+v: %s", pn, err)
+			log.Errorf(errMsg)
+			d.setKNPStatus(common.ErrorPrefix, errMsg, npwe.Object)
 			return
 		}
 		log.Infof("Kubernetes network policy successfully removed %+v", npwe.Object)
+		d.setKNPStatus(common.EnforcedPrefix, "", npwe.Object)
 	}
 }

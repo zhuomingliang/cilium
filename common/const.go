@@ -90,6 +90,13 @@ const (
 	// CiliumGroupName is the cilium's unix group name.
 	CiliumGroupName = "cilium"
 
+	// Kubernetes cilium status
+	// K8sAnnotationStatusName is the annotation name used for the cilium policy
+	// status name in the kubernetes network policy.
+	K8sAnnotationStatusName = "io.cilium.status"
+	EnforcedPrefix          = "Enforced"
+	ErrorPrefix             = "Error: "
+
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "lxc_config.h"
