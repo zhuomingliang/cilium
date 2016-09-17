@@ -15,6 +15,18 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+
+/**
+ * Configuration:
+ * LB_L4: Include L4 matching and rewriting capabilities
+ * LB_L3: Enable fallback to L3 LB entries
+ *
+ * Either LB_L4, LB_L3, or both need to be set to enable forward
+ * translation. Reverse translation will awlays occur regardless
+ * of the settings.
+ */
+
+
 #ifndef __LB_H_
 #define __LB_H_
 
@@ -51,8 +63,7 @@ static inline int lb_select_slave(struct __sk_buff *skb, __u16 count)
 	return slave;
 }
 
-static inline int extract_l4_port(struct __sk_buff *skb, __u8 nexthdr, int l4_off,
-				  struct csum_offset *csum_off, __u16 *port)
+static inline int extract_l4_port(struct __sk_buff *skb, __u8 nexthdr, int l4_off, __u16 *port)
 {
 	int ret;
 
@@ -73,8 +84,6 @@ static inline int extract_l4_port(struct __sk_buff *skb, __u8 nexthdr, int l4_of
 		/* Pass unknown L4 to stack */
 		return DROP_UNKNOWN_L4;
 	}
-
-	csum_l4_offset_and_flags(nexthdr, csum_off);
 
 	return 0;
 }
@@ -181,26 +190,41 @@ static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_
 					     struct csum_offset *csum_off)
 {
 	ipv6_addr_copy(&key->address, &tuple->addr);
-	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, &key->dport);
+	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
+
+#ifdef LB_L4
+	return extract_l4_port(skb, tuple->nexthdr, l4_off, &key->dport);
+#else
+	return 0;
+#endif
 }
 
 static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 						    struct lb6_key *key)
 {
-	struct lb6_service *svc;
+#ifdef LB_L4
+	if (key->dport) {
+		struct lb6_service *svc;
 
-	cilium_trace(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
-	svc = map_lookup_elem(&cilium_lb6_services, key);
-	if (svc && svc->count != 0)
-		return svc;
+		cilium_trace(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
+		svc = map_lookup_elem(&cilium_lb6_services, key);
+		if (svc && svc->count != 0)
+			return svc;
 
-	if (key->dport != 0) {
 		key->dport = 0;
+	}
+#endif
+
+#ifdef LB_L3
+	if (1) {
+		struct lb6_service *svc;
+
 		cilium_trace(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
 		svc = map_lookup_elem(&cilium_lb6_services, key);
 		if (svc && svc->count != 0)
 			return svc;
 	}
+#endif
 
 	cilium_trace(skb, DBG_LB6_LOOKUP_MASTER_FAIL, key->address.p2, key->address.p3);
 	return NULL;
@@ -226,8 +250,6 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 				       int l3_off, int l4_off, struct csum_offset *csum_off,
 				       struct lb6_key *key, struct lb6_service *svc)
 {
-	int ret;
-
 	ipv6_store_daddr(skb, new_dst->addr, l3_off);
 
 	if (csum_off) {
@@ -236,14 +258,18 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 			return DROP_CSUM_L4;
 	}
 
+#ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
+		int ret;
+
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
+#endif
 
 	return TC_ACT_OK;
 }
@@ -334,26 +360,41 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 					     struct csum_offset *csum_off)
 {
 	key->address = tuple->addr;
-	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, &key->dport);
+	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
+
+#ifdef LB_L4
+	return extract_l4_port(skb, tuple->nexthdr, l4_off, &key->dport);
+#else
+	return 0;
+#endif
 }
 
 static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 						     struct lb4_key *key)
 {
-	struct lb4_service *svc;
+#ifdef LB_L4
+	if (key->dport) {
+		struct lb4_service *svc;
 
-	cilium_trace(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport);
-	svc = map_lookup_elem(&cilium_lb4_services, key);
-	if (svc && svc->count != 0)
-		return svc;
+		cilium_trace(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport);
+		svc = map_lookup_elem(&cilium_lb4_services, key);
+		if (svc && svc->count != 0)
+			return svc;
 
-	if (key->dport != 0) {
 		key->dport = 0;
+	}
+#endif
+
+#ifdef LB_L3
+	if (1) {
+		struct lb4_service *svc;
+
 		cilium_trace(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport);
 		svc = map_lookup_elem(&cilium_lb4_services, key);
 		if (svc && svc->count != 0)
 			return svc;
 	}
+#endif
 
 	cilium_trace(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
 	return NULL;
@@ -395,6 +436,7 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 			return DROP_CSUM_L4;
 	}
 
+#ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
@@ -403,6 +445,7 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 		if (IS_ERR(ret))
 			return ret;
 	}
+#endif
 
 	return TC_ACT_OK;
 }
