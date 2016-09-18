@@ -19,6 +19,16 @@ function mac2array()
 	echo "{0x${1//:/,0x}}"
 }
 
+function host_ip6()
+{
+	ip -6 addr show cilium_host scope global | grep inet6 | awk '{print $2}' | sed -e 's/\/.*//'
+}
+
+function host_ip4()
+{
+	ip -4 addr show cilium_host scope global | grep inet | awk '{print $2}' | sed -e 's/\/.*//'
+}
+
 trap cleanup EXIT
 
 # Remove containers from a previously incomplete run
@@ -96,6 +106,7 @@ cat <<EOF | cilium -D policy import -
 	}
 }
 EOF
+
 SVC_IP6="f00d::1:1"
 LB_PORT=0
 REVNAT=222
@@ -114,6 +125,19 @@ sudo cilium lb --ipv4 update-service $SVC_IP4 $LB_PORT 2 2 $REVNAT $SERVER2_IP4 
 sudo cilium lb --ipv4 create-rev-nat-map
 sudo cilium lb --ipv4 update-rev-nat $REVNAT $SVC_IP4 $LB_PORT
 
+LB_HOST_IP6="f00d::1:2"
+LB_PORT=0
+REVNAT=223
+sudo cilium lb update-service $LB_HOST_IP6 $LB_PORT 0 1 $REVNAT :: $LB_PORT
+sudo cilium lb update-service $LB_HOST_IP6 $LB_PORT 1 1 $REVNAT $(host_ip6) $LB_PORT
+sudo cilium lb update-rev-nat $REVNAT $LB_HOST_IP6 $LB_PORT
+
+LB_HOST_IP4="3.3.3.3"
+sudo cilium lb --ipv4 update-service $LB_HOST_IP4 $LB_PORT 0 1 $REVNAT 0.0.0.0 $LB_PORT
+sudo cilium lb --ipv4 update-service $LB_HOST_IP4 $LB_PORT 1 1 $REVNAT $(host_ip4) $LB_PORT
+sudo cilium lb --ipv4 update-rev-nat $REVNAT $LB_HOST_IP4 $LB_PORT
+
+## Test 1: 
 monitor_clear
 ping6 $SVC_IP6 -c 4 || {
 	abort "Error: Unable to ping"
@@ -132,6 +156,16 @@ docker exec -i client ping6 -c 4 $SVC_IP6 || {
 monitor_clear
 docker exec -i client ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
+}
+
+monitor_clear
+docker exec -i client ping6 -c 4 $LB_HOST_IP6 || {
+	abort "Error: Unable to reach local IPv6 node via loadbalancer"
+}
+
+monitor_clear
+docker exec -i client ping -c 4 $LB_HOST_IP4 || {
+	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
 monitor_stop

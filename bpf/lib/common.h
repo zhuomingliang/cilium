@@ -195,6 +195,7 @@ struct lb6_service {
 	union v6addr target;
 	__u16 port;
 	__u16 count;
+	__u16 rev_nat_index;
 } __attribute__((packed));
 
 struct lb6_reverse_nat {

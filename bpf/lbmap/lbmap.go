@@ -74,6 +74,7 @@ type LB6Service struct {
 	Address types.IPv6
 	Port    uint16
 	Count   uint16
+	RevNat  uint16
 }
 
 type LB4Service struct {
@@ -452,22 +453,13 @@ func parseLB6Service(ctx *cli.Context, firstArg int) *LB6Service {
 
 	svc := LB6Service{}
 	svc.Count = parseUint16(ctx, firstArg)
-	revNAT := parseUint16(ctx, firstArg+1)
+	svc.RevNat = common.Swab16(parseUint16(ctx, firstArg+1))
 	svc.Port = common.Swab16(parseUint16(ctx, firstArg+3))
 
 	target, err := addressing.NewCiliumIPv6(ctx.Args().Get(firstArg + 2))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid IPv6 address: %s\n", err)
 		os.Exit(1)
-	}
-
-	if revNAT != 0 {
-		if target.State() != 0 {
-			fmt.Fprintf(os.Stderr, "Error: Address has non-zero state bits.")
-			os.Exit(1)
-		}
-
-		target.SetState(revNAT)
 	}
 
 	copy(svc.Address[:], target)

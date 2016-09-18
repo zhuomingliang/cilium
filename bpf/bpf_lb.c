@@ -99,6 +99,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	ipv6_addr_copy(&new_dst, &svc->target);
+	if (svc->rev_nat_index)
+		new_dst.p4 |= svc->rev_nat_index;
+
 	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
