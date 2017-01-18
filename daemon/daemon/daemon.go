@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/lbmap"
@@ -472,12 +473,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if c.RestoreState {
+		start := time.Now()
 		if err := d.SyncState(common.CiliumPath, true); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 		if err := d.SyncLBMap(); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
+		timeTrack(start, "SyncState")
 	}
 
 	d.endpointsMU.Lock()
@@ -491,6 +494,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	return &d, nil
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Debugf("%s took %s\n", name, elapsed)
 }
 
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
