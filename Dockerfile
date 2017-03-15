@@ -7,22 +7,22 @@ ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN apt-get update && \
 apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git libc6-dev.i386 && \
 #
-# clang-3.8.1-begin
+# clang-4.0.0-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
 cd /tmp && \
 curl -Ssl -o clang+llvm.tar.xz \
-http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+http://releases.llvm.org/4.0.0/clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
 mkdir -p /usr/local && \
 tar -C /usr/local -xJf ./clang+llvm.tar.xz && \
-mv /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
+mv /usr/local/clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
 rm clang+llvm.tar.xz && \
 rm -fr /usr/local/clang+llvm/include/llvm-c && \
 rm -fr /usr/local/clang+llvm/include/clang-c && \
 rm -fr /usr/local/clang+llvm/include/c++ && \
 rm -fr /usr/local/clang+llvm/share && \
 ls -d /usr/local/clang+llvm/lib/* | grep -vE clang$ | xargs rm -r && \
-ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm -r && \
-# clang-3.8.1-end
+ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-4.0$|llc$" | xargs rm -r && \
+# clang-4.0.0-end
 #
 # iproute2-begin
 cd /tmp && \
