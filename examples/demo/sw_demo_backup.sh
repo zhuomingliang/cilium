@@ -2,14 +2,12 @@
 
 . $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
-export LC_ALL=en_US.UTF-8
-
 NETWORK="space"
 PWD=$(dirname ${BASH_SOURCE})
 
 function cleanup {
 	tmux kill-session -t my-session >/dev/null 2>&1
-	docker rm -f deathstar luke xwing_luke xwing ship1 2> /dev/null || true
+	docker rm -f deathstar luke xwing_luke xwing fighter1 2> /dev/null || true
 	cilium policy delete root 2> /dev/null
 }
 
@@ -33,43 +31,81 @@ docker network rm $NETWORK > /dev/null 2>&1
 desc_rate "And so it begins..."
 run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
 
+desc_rate "The empire begins constructing the death star by launching a container"
 run "docker run -dt --net=$NETWORK --name deathstar -l id.empire.deathstar cilium/starwars"
 
 desc_rate "In order for spaceships to land, the empire establishes"
-desc_rate "a network landing policy (L3/L4)."
+desc_rate "a network landing policy (L3/L4). It allows id.spaceship"
+desc_rate "to talk to id.deathstar."
 run "cat sw_policy_l4.json"
 run "cilium policy import sw_policy_l4.json"
 
 DEATHSTAR_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.space.IPAddress }}' deathstar)
 
-run "docker run -dt --net=$NETWORK --name ship1 -l id.spaceship --add-host deathstar:$DEATHSTAR_IP4 tgraf/netperf"
+desc_rate "The empire wants to test landing permissions..."
+run "docker run -dt --net=$NETWORK --name fighter1 -l id.spaceship --add-host deathstar:$DEATHSTAR_IP4 tgraf/netperf"
 run "cilium endpoint list"
-run "docker exec -i ship1 curl -si -XPOST http://deathstar/v1/request-landing"
 
-desc_rate "In the meantime..."
+desc "The spaceship issues a POST /v1/request-landing to the deathstar"
+run "docker exec -i fighter1 curl -si -XPOST http://deathstar/v1/request-landing"
+
+desc_rate "Spaceship has landed \o/. The empire celebrates."
+run ""
+desc_rate "In the meantime...."
 desc_rate ""
+desc_rate "The rebel alliance notices the construction of the death star"
+desc_rate "and sends a scout."
 run "docker run -dt --net=$NETWORK --name xwing -l id.spaceship --add-host deathstar:$DEATHSTAR_IP4 tgraf/netperf"
+desc_rate "It pings the the deathstar (L3 policy) ..."
 run "docker exec -i xwing ping -c 2 deathstar"
+desc_rate "... and then sends a GET /v1/ to the deathstar (L4 policy)"
 run "docker exec -i xwing curl -si -XGET http://deathstar/v1/"
+desc_rate "Wow..... the deathstar exposes the entire API..."
 desc_rate "Look at that thermal exhaust port, it seems vulnerable..."
 run ""
-desc_rate "In the meantime..."
-run "cat sw_policy_http.show.json"
+desc_rate "In the meantime...."
+desc_rate "The SecOps team of the empire has detected the security"
+desc_rate "hole and deploys cilium HTTP policies:"
+run "cat sw_policy_http.json"
+#run "cilium policy delete root"
 run "cilium policy import sw_policy_http.real.json"
 
-desc_rate "The rebels return..."
+desc_rate ""
+desc_rate "The rebels attack... they first ping ...."
 run "docker exec -i xwing ping -c 2 deathstar"
+desc_rate "... and will now attack the vulnerable API endpoint"
+desc_rate "by doing: curl -si -XPUT http://deathstar/v1/exhaust-port"
+run ""
 run "docker exec -i xwing curl -si -XPUT http://deathstar/v1/exhaust-port"
 
-desc_rate "Oh no! The shields are up."
+desc_rate "Oh no! The shields are up. The rebel attack is ineffective".
+desc_rate ""
 desc_rate "End of demo."
 run ""
+desc_rate "The move of Empire SecOps was good but we can't end the"
+desc_rate "story like this."
+desc_rate ""
 desc_rate "Here is what you missed..."
 desc_rate ""
-run "colordiff -Nru sw_policy_http.show.json sw_policy_http.real.json"
+desc_rate "The Jedi have foreseen this situation and manipulated the"
+desc_rate "L7 policy before it was installed."
+desc_rate ""
+desc_rate "Let's run diff on the policy that was actually loaded..."
+run "diff -Nru sw_policy_http.json sw_policy_http.real.json"
 
+desc_rate "The policy allows an HTTP request to pass through if the"
+desc_rate "HTTP header 'X-Has-Force: true' is set"
+run ""
 run "docker run -dt --net=$NETWORK --name xwing_luke -l id.spaceship --add-host deathstar:$DEATHSTAR_IP4 tgraf/netperf"
+run ""
 run "docker exec -i xwing_luke curl -si -H 'X-Has-Force: true' -XPUT http://deathstar/v1/exhaust-port"
+
+desc_rate "Luke watches the deathstar explode..."
 run "docker exec -i xwing_luke ping deathstar"
+
+#tmux new -d -s my-session \
+#    "$PWD/starwars_top.sh" \; \
+#    split-window -v -d "$PWD/starwars_bottom.sh" \; \
+#    attach \;
 
 desc "Cleaning up demo environment"
