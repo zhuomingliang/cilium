@@ -57,6 +57,8 @@ function bpf_compile()
 	tc filter add dev $DEV ingress bpf da obj $OUT sec $5
 }
 
+sysctl -w net.ipv6.conf.all.disable_ipv6=0
+
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DENABLE_ARP_RESPONDER -DHANDLE_NS -Wno-address-of-packed-member -Wno-unknown-warning-option"
