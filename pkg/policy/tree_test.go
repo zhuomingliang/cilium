@@ -26,7 +26,7 @@ import (
 func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	//var nullPtr *Node
 
-	tree := Tree{}
+	tree := NewTree()
 
 	// Empty tree should return empty result
 	n, p := tree.LookupLocked("")
@@ -119,10 +119,24 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(p, IsNil)
 }
 
+func (ds *PolicyTestSuite) TestDeletePersistent(c *C) {
+	tree := NewTree()
+
+	// add a persistent node, it should not be deleted
+	foo := NewNode("foo", nil)
+	foo.persistent = true
+	added, err := tree.Add(RootNodeName, foo)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	deleted := tree.Delete("root.foo", "")
+	c.Assert(deleted, Equals, false)
+}
+
 func (ds *PolicyTestSuite) TestLookup(c *C) {
 	//var nullPtr *Node
 
-	tree := Tree{}
+	tree := NewTree()
 	foo := NewNode("foo", nil)
 
 	// adding foo to root
@@ -195,7 +209,7 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 func (ds *PolicyTestSuite) TestAddDelete2(c *C) {
 	//var nullPtr *Node
 
-	tree := Tree{}
+	tree := NewTree()
 	root := NewNode("io.cilium", nil)
 
 	// adding "io.cilium" to root node should succeed
@@ -275,7 +289,7 @@ func (ds *PolicyTestSuite) TestAlwaysAllow(c *C) {
 	err := json.Unmarshal([]byte(policyText), &node)
 	c.Assert(err, IsNil)
 
-	tree := Tree{}
+	tree := NewTree()
 	added, err := tree.Add("root", &node)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -307,7 +321,7 @@ func (ds *PolicyTestSuite) TestDenyOverwrite(c *C) {
 	err := json.Unmarshal([]byte(policyText), &node)
 	c.Assert(err, IsNil)
 
-	tree := Tree{}
+	tree := NewTree()
 	added, err := tree.Add("root", &node)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -331,7 +345,7 @@ func (ds *PolicyTestSuite) TestRulePrecedence(c *C) {
 	err := json.Unmarshal([]byte(policyText), &node)
 	c.Assert(err, IsNil)
 
-	tree := Tree{}
+	tree := NewTree()
 	added, err := tree.Add("root", &node)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)

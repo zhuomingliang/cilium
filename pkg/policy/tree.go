@@ -29,6 +29,12 @@ type Tree struct {
 	Root  *Node
 }
 
+// NewTree allocates and initializes a new policy tree
+func NewTree() *Tree {
+	tree := &Tree{}
+	return tree
+}
+
 func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 	ctx.Depth++
 	decision := api.UNDECIDED
@@ -271,6 +277,10 @@ func (t *Tree) Delete(path string, coverage string) bool {
 			}
 		}
 
+		return false
+	}
+
+	if node.persistent {
 		return false
 	}
 
