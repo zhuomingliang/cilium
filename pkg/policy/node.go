@@ -26,11 +26,16 @@ import (
 
 // Node to define hierarchy of rules
 type Node struct {
-	path      string
-	Name      string           `json:"name"`
-	Parent    *Node            `json:"-"`
-	Rules     []PolicyRule     `json:"rules,omitempty"`
-	Children  map[string]*Node `json:"children,omitempty"`
+	path string
+	Name string `json:"name"`
+	// CoverAll marks policy nodes which should always have their
+	// rules applied regardless of whether the name/path of the node
+	// matches any of the labels in the search context.
+	CoverAll bool             `json:"coverAll,omitempty"`
+	Parent   *Node            `json:"-"`
+	Rules    []PolicyRule     `json:"rules,omitempty"`
+	Children map[string]*Node `json:"children,omitempty"`
+
 	mergeable bool
 	resolved  bool
 }
@@ -169,7 +174,13 @@ func coversLabel(l *labels.Label, path string) bool {
 	return false
 }
 
+// Covers returns true if node covers any of the search context `To` elements
+// present.
 func (n *Node) Covers(ctx *SearchContext) bool {
+	if n.CoverAll {
+		return true
+	}
+
 	for _, v := range ctx.To {
 		if coversLabel(v, n.Path()) {
 			return true
@@ -179,8 +190,8 @@ func (n *Node) Covers(ctx *SearchContext) bool {
 	return false
 }
 
-// Allows returns the decision whether the node allows the From to consume the
-// To in the provided search context
+// Allows returns the decision whether the node allows the `From` to consume the
+// `To` in the provided search context.
 func (n *Node) Allows(ctx *SearchContext) api.ConsumableDecision {
 	decision := api.UNDECIDED
 

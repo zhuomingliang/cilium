@@ -85,3 +85,8 @@ func (ds *PolicyTestSuite) TestNormalizeNames(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, RootNodeName)
 }
+
+func (ds *PolicyTestSuite) TestCoverAll(c *C) {
+	n := Node{CoverAll: true}
+	c.Assert(n.Covers(nil), Equals, true)
+}
