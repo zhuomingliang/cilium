@@ -74,6 +74,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(parent, Equals, DefaultPolicyParentPath)
 	c.Assert(node, Not(IsNil))
+	c.Assert(node.CoverAll, Equals, true)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
