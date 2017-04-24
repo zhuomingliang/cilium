@@ -1153,6 +1153,20 @@ func init() {
         "from": {
           "$ref": "#/definitions/Labels"
         },
+        "l4-egress": {
+          "description": "List of Layer 4 port and protocol pairs which the identity will use for\noutgoing network communication. If specified, all port / protocol pairs\nmust be allowed by the policy.\n",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Port"
+          }
+        },
+        "l4-ingress": {
+          "description": "List of Layer 4 port and protocol pairs which the identity will use for\nincoming network communication. If specified, all port / protocol pairs\nmust be allowed by the policy.\n",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Port"
+          }
+        },
         "to": {
           "$ref": "#/definitions/Labels"
         }
@@ -1262,6 +1276,26 @@ func init() {
     "PolicyTree": {
       "description": "Policy tree or subtree",
       "type": "string"
+    },
+    "Port": {
+      "description": "Layer 4 port / protocol pair",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp",
+            "any"
+          ]
+        }
+      }
     },
     "Service": {
       "description": "Collection of endpoints to be served",
