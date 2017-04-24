@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -112,28 +113,54 @@ func policyTraceVerbose(ctx *SearchContext, format string, a ...interface{}) {
 }
 
 type SearchContext struct {
-	Trace   Tracing
-	Depth   int
-	Logging *logging.LogBackend
-	From    labels.LabelArray
-	To      labels.LabelArray
+	Trace     Tracing
+	Depth     int
+	Logging   *logging.LogBackend
+	From      labels.LabelArray
+	To        labels.LabelArray
+	L4Ingress []*models.Port
+	L4Egress  []*models.Port
 }
 
 type SearchContextReply struct {
-	Logging  []byte
-	Decision api.ConsumableDecision
+	L3Decision api.ConsumableDecision
+	L4Decision api.ConsumableDecision
+}
+
+// FinalDecision returns a decision for a L3 and L4 decision reply.
+func (s *SearchContextReply) FinalDecision() api.ConsumableDecision {
+	if s.L3Decision == api.ACCEPT || s.L4Decision == api.ALWAYS_ACCEPT {
+		return s.L4Decision
+	}
+	return s.L3Decision
 }
 
 func (s *SearchContext) String() string {
 	from := []string{}
 	to := []string{}
+	l4ingress := []string{}
+	l4egress := []string{}
 	for _, fromLabel := range s.From {
 		from = append(from, fromLabel.String())
 	}
 	for _, toLabel := range s.To {
 		to = append(to, toLabel.String())
 	}
-	return fmt.Sprintf("From: [%s] => To: [%s]", strings.Join(from, ", "), strings.Join(to, ", "))
+	for _, l4ingRule := range s.L4Ingress {
+		l4ingress = append(l4ingress, fmt.Sprintf("%d/%s", l4ingRule.Port, l4ingRule.Protocol))
+	}
+	for _, l4egrRule := range s.L4Egress {
+		l4egress = append(l4egress, fmt.Sprintf("%d/%s", l4egrRule.Port, l4egrRule.Protocol))
+	}
+	ret := fmt.Sprintf("From: [%s]", strings.Join(from, ", "))
+	if len(l4egress) != 0 {
+		ret += fmt.Sprintf(" AND L4-egress: [%s]", strings.Join(l4egress, ", "))
+	}
+	ret += fmt.Sprintf(" => To: [%s]", strings.Join(to, ", "))
+	if len(l4ingress) != 0 {
+		ret += fmt.Sprintf(" AND L4-ingress: [%s]", strings.Join(l4ingress, ", "))
+	}
+	return ret
 }
 
 func (s *SearchContext) CallDepth() string {
@@ -143,7 +170,7 @@ func (s *SearchContext) CallDepth() string {
 // TargetCoveredBy checks if the SearchContext `To` is covered by the all
 // `coverage` labels.
 func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
-	policyTraceVerbose(s, "Checking if %+v covers %+v", coverage, s.To)
+	policyTrace(s, "Checking if %+v covers %+v", coverage, s.To)
 	return s.To.Contains(coverage)
 }
 

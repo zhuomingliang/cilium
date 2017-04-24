@@ -295,7 +295,7 @@ func (ds *PolicyTestSuite) TestAlwaysAllow(c *C) {
 	c.Assert(err, IsNil)
 
 	decision := tree.AllowsRLocked(defaultCtx)
-	c.Assert(decision, Equals, api.ACCEPT)
+	c.Assert(decision.L3Decision, Equals, api.ACCEPT)
 }
 
 func (ds *PolicyTestSuite) TestDenyOverwrite(c *C) {
@@ -327,7 +327,7 @@ func (ds *PolicyTestSuite) TestDenyOverwrite(c *C) {
 	c.Assert(err, IsNil)
 
 	decision := tree.AllowsRLocked(defaultCtx)
-	c.Assert(decision, Equals, api.DENY)
+	c.Assert(decision.L3Decision, Equals, api.DENY)
 }
 
 func (ds *PolicyTestSuite) TestRulePrecedence(c *C) {
@@ -351,7 +351,7 @@ func (ds *PolicyTestSuite) TestRulePrecedence(c *C) {
 	c.Assert(err, IsNil)
 
 	decision := tree.AllowsRLocked(defaultCtx)
-	c.Assert(decision, Equals, api.DENY)
+	c.Assert(decision.L3Decision, Equals, api.DENY)
 }
 
 func (ds *PolicyTestSuite) TestOutsideCoverage(c *C) {
