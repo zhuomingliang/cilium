@@ -505,12 +505,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	if nodeName := os.Getenv(common.K8sEnvNodeNameSpec); nodeName != "" {
-		// Try to retrieve node's cidr from k8s's configuration
-		if err := d.useK8sNodeCIDR(nodeName); err != nil {
-			return nil, err
+		if nodeName := os.Getenv(common.K8sEnvNodeNameSpec); nodeName != "" {
+			// Try to retrieve node's cidr from k8s's configuration
+			if err := d.useK8sNodeCIDR(nodeName); err != nil {
+				return nil, err
+			}
 		}
 	}
 
