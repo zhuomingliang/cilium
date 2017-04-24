@@ -14,6 +14,8 @@
 
 package policy
 
+import "github.com/cilium/cilium/pkg/policy/api"
+
 type PolicyRule interface {
 	// Resolve must resolve any internal label members to the full path
 	// assuming that the rule is attached to the specified node.
@@ -30,5 +32,11 @@ type PolicyRule interface {
 	// rules within a node. Certain rules are not additive and require
 	// strict ordering, such rules may never be merged in a node as
 	// merging may occur in undefined order.
+	IsMergeable() bool
+}
+
+type Rule interface {
+	Allows(ctx *SearchContext) api.ConsumableDecision
+	String() string
 	IsMergeable() bool
 }
