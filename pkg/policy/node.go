@@ -350,7 +350,11 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 	}
 
 	n.Name = policyNode.Name
-	n.Children = policyNode.Children
+	if policyNode.Children != nil {
+		n.Children = policyNode.Children
+	} else {
+		n.Children = map[string]*Node{}
+	}
 
 	for _, rawMsg := range policyNode.Rules {
 		var om map[string]*json.RawMessage
