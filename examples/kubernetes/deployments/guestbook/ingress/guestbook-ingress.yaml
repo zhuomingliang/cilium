@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: guestbook-ingress
+  namespace: cilium-example
 spec:
   backend:
     serviceName: guestbook
