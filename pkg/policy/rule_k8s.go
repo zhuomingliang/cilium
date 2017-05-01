@@ -71,12 +71,20 @@ func (a *K8sAllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 	}()
 
 	if a.Selector.PodSelector != nil {
-		lbSelector, _ := metav1.LabelSelectorAsSelector(a.Selector.PodSelector)
+		lbSelector, err := metav1.LabelSelectorAsSelector(a.Selector.PodSelector)
+		if err != nil {
+			log.Errorf("unable to transform pod selector in selector: %s", err)
+			return api.UNDECIDED
+		}
 		if lbSelector.Matches(k8sLbls.Labels(ctx.From)) {
 			return a.Action
 		}
 	} else if a.Selector.NamespaceSelector != nil {
-		lbSelector, _ := metav1.LabelSelectorAsSelector(a.Selector.NamespaceSelector)
+		lbSelector, err := metav1.LabelSelectorAsSelector(a.Selector.NamespaceSelector)
+		if err != nil {
+			log.Errorf("unable to transform namespace selector in selector: %s", err)
+			return api.UNDECIDED
+		}
 		if lbSelector.Matches(k8sLbls.Labels(ctx.From)) {
 			return a.Action
 		}

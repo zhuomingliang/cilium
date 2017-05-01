@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
@@ -166,5 +167,83 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 		})
 	}
 
+	if np.Annotations[k8sTypes.AnnotationCiliumPolicy] != "" {
+		if err := ParseNetworkPolicyExtension(np, pn); err != nil {
+			return "", nil, err
+		}
+	}
+
 	return parentNodeName, pn, nil
+}
+
+func ParseNetworkPolicyExtension(np *v1beta1.NetworkPolicy, pn *policy.Node) error {
+	ciliumPolicyJson := np.Annotations[k8sTypes.AnnotationCiliumPolicy]
+	npes := NetworkPolicyExtensionSpec{}
+	if err := json.Unmarshal([]byte(ciliumPolicyJson), &npes); err != nil {
+		return err
+	}
+	allowRules := []policy.Rule{}
+	auxRules := []policy.AuxRule{}
+	for _, ing := range npes.Ingress {
+		for _, rule := range ing.From {
+			lbsl := labels.Map2Labels(rule.CiliumSelector.MatchLabels, "")
+			rule.CiliumSelector.MatchLabels = map[string]string{}
+			for k, v := range lbsl {
+				rule.CiliumSelector.MatchLabels[k] = v.Value
+			}
+			ar := &policy.K8sAllowRule{
+				Action: api.ACCEPT,
+				Selector: policy.K8sSelector{
+					PodSelector: rule.CiliumSelector,
+				},
+			}
+			allowRules = append(allowRules, ar)
+		}
+		for _, appRule := range ing.MatchApplications {
+			switch appRule.GetObjectKind().Kind {
+			case HTTPKind:
+				http, ok := appRule.(HTTP)
+				if !ok {
+					break
+				}
+				for _, rule := range http.Rules {
+					var expr string
+					if rule.Path != "" {
+						expr = fmt.Sprintf(`Method(%q) && Path(%q)`, rule.Method, rule.Path)
+					} else {
+						expr = fmt.Sprintf(`Method(%q)`)
+					}
+					auxRules = append(auxRules, policy.AuxRule{
+						Expr: expr,
+					})
+				}
+			}
+		}
+	}
+	if len(allowRules) > 0 {
+		pn.Rules = append(pn.Rules, &policy.RuleK8s{
+			PodSelector: np.Spec.PodSelector,
+			Allow:       allowRules,
+		})
+	}
+	if len(auxRules) > 0 {
+		for _, nodeRule := range pn.Rules {
+			nodeRuleL4K8s, ok := nodeRule.(*policy.RuleL4K8s)
+			fmt.Printf("Not ablee to %+v %+v\n", nodeRuleL4K8s, ok)
+			if !ok {
+				continue
+			}
+			for i := range nodeRuleL4K8s.Allow {
+				for j, ing := range nodeRuleL4K8s.Allow[i].Ingress {
+					fmt.Printf("Not ablee to %+v\n", ing)
+					if ing.L7Parser == "" && len(ing.L7Rules) == 0 {
+						ing.L7Rules = auxRules
+						ing.L7Parser = "http"
+						nodeRuleL4K8s.Allow[i].Ingress[j] = ing
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
