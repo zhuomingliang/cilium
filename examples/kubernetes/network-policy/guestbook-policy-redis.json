@@ -2,8 +2,7 @@
   "apiVersion": "extensions/v1beta1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "name": "guestbook-redis",
-    "namespace": "cilium-example"
+    "name": "guestbook-redis"
   },
   "spec": {
     "podSelector": {
