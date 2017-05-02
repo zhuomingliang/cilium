@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -30,30 +29,23 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
+func runGC(e *endpoint.Endpoint, name string) {
+	// Get path of map that is tied to this endpoint ID
 	file := bpf.MapPath(name + strconv.Itoa(int(e.ID)))
-	fd, err := bpf.ObjGet(file)
+
+	// Why is this necessary?
+	// If LRUHashtable, no need to garbage collect; throw out.
+	//if info.MapType == bpf.MapTypeLRUHash {
+	//	return
+	//}
+
+	m, err := bpf.OpenMap(file)
 	if err != nil {
-		log.Warningf("Unable to open CT map %s: %s\n", file, err)
+		log.Warningf("Unable to open map %s: %s", name, err)
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
-		return
 	}
 
-	f := os.NewFile(uintptr(fd), file)
-	defer f.Close()
-
-	info, err := bpf.GetMapInfo(os.Getpid(), fd)
-	if err != nil {
-		log.Warningf("Unable to open CT map's fdinfo %s: %s\n", file, err)
-	}
-
-	if info.MapType == bpf.MapTypeLRUHash {
-		return
-	}
-
-	m := ctmap.CtMap{Fd: fd, Type: ctType}
-
-	deleted := m.GC(uint16(GcInterval))
+	deleted := ctmap.GC(m, uint16(GcInterval), name)
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
 	}
@@ -77,9 +69,9 @@ func (d *Daemon) EnableConntrackGC() {
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
-				runGC(e, ctmap.MapName6, ctmap.CtTypeIPv6)
+				runGC(e, ctmap.MapName6)
 				if !d.conf.IPv4Disabled {
-					runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
+					runGC(e, ctmap.MapName4)
 				}
 			}
 

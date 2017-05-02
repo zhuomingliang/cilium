@@ -15,114 +15,102 @@
 package ctmap
 
 import (
-	"bytes"
-	"fmt"
-	"unsafe"
-
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
+	"github.com/op/go-logging"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"unsafe"
 )
 
-type CtMap struct {
-	path string
-	Fd   int
-	Type CtType
-}
+var log    = logging.MustGetLogger("cilium")
+
+type CtType int
+
+const (
+       CtTypeIPv6 CtType = iota
+       CtTypeIPv4
+)
 
 const (
 	MapName6 = "cilium_ct6_"
 	MapName4 = "cilium_ct4_"
-
+	// Maximum number of entries in each hashtable
+	maxEntries   = 65536
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
 )
 
-type CtType int
+// ServiceKey is the interface describing protocol independent key for services map.
+type ServiceKey interface {
+	bpf.MapKey
 
-const (
-	CtTypeIPv6 CtType = iota
-	CtTypeIPv4
-)
+	// Returns human readable string representation
+	String() string
 
-type CtKey interface {
-	Dump(buffer *bytes.Buffer) bool
+	// Returns true if the key is of type IPv6
+	IsIPv6() bool
+
+	// Returns the BPF map matching the key type
+	Map() *bpf.Map
+
+	// Returns a RevNatValue matching a ServiceKey
+	//RevNatValue() uint16
+
+	// Returns the source port set in the key or 0
+	//GetSrcPort() uint16
+
+	// Set source port to map to (left blank for master)
+	SetSrcPort(uint16)
+
+	// Returns the destination port set in the key or 0
+	//GetDstPort() uint16
+
+	//Set destination port to map to (left blank for master)
+	SetDstPort(uint16)
+
+	// Returns the next header
+	//GetNextHdr() u8proto.U8proto
+
+	SetNextHdr(u8proto.U8proto)
+
+
+	// Returns the flags
+	//GetFlags() uint8
+
+	// Sets the flags
+	SetFlags(uint8)
+
+	// Convert between host byte order and map byte order
+	Convert() ServiceKey
 }
 
-type CtKey6 struct {
-	addr    types.IPv6
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
+// ServiceValue is the interface describing protocol independent value for services map.
+type ServiceValue interface {
+	bpf.MapValue
+
+	// Returns human readable string representation
+	//String() string
+
+	// Returns the  matching a ServiceValue
+	//RevNatKey() uint16
+
+	// Set source port to map to (left blank for master)
+	//SetSrcPort(uint16)
+
+	//Set destination port to map to (left blank for master)
+	//SetDstPort(uint16)
+
+	// Sets the next header
+	//SetNextHdr(u8proto.U8proto)
+
+	// Sets the flags
+	//SetFlags(uint8)
+
+	// Convert between host byte order and map byte order
+	// Convert() ServiceValue
 }
 
-func (key CtKey6) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.sport, key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.dport,
-			key.sport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
-type CtKey4 struct {
-	addr    types.IPv4
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
-}
-
-func (key CtKey4) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.sport, key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.dport,
-			key.sport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
+// CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
 	rx_packets uint64
 	rx_bytes   uint64
@@ -134,16 +122,28 @@ type CtEntry struct {
 	proxy_port uint16
 }
 
-type CtEntryDump struct {
-	Key   CtKey
-	Value CtEntry
+func (s *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+
+func (s *CtEntry) Convert() ServiceValue {
+	//TODO: figure out if need to run Swab16 here
+	n := *s
+	//n.RevNat = common.Swab16(n.RevNat)
+	//n.Port = common.Swab16(n.Port)
+	//n.Weight = common.Swab16(n.Weight)
+	return &n
 }
 
-func (m *CtMap) String() string {
-	return m.path
-}
+//type CtKey interface {
+//	Dump(buffer *bytes.Buffer) bool
+//}
 
-func (m *CtMap) Dump() (string, error) {
+//type CtEntryDump struct {
+//	Key   CtKey
+//	Value CtEntry
+//}
+
+// Dump iterates through Map m and writes the values of the ct entries to a string.
+/*func (m *CtMap) Dump() (string, error) {
 	var buffer bytes.Buffer
 	entries, err := m.DumpToSlice()
 	if err != nil {
@@ -184,11 +184,12 @@ func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
 				break
 			}
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err = key.Map().Lookup(key.Convert())
+			//err = bpf.LookupElement(
+			//	m.Fd,
+			//	unsafe.Pointer(&nextKey),
+			//	unsafe.Pointer(&entry),
+			//)
 			if err != nil {
 				return nil, err
 			}
@@ -224,46 +225,48 @@ func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
 	}
 
 	return entries, nil
-}
+}*/
 
-func (m *CtMap) doGc(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int) bool {
-	var entry CtEntry
+// TODO: callees of this iterate through the map using a for loop until 'false' is returned
+func doGc(m *bpf.Map, interval uint16, key ServiceKey, nextKey ServiceKey, deleted *int) bool {
+	err := m.GetNextKey(key.Convert(), nextKey.Convert())
 
-	err := bpf.GetNextKey(m.Fd, key, nextKey)
 	if err != nil {
 		return false
 	}
 
-	err = bpf.LookupElement(m.Fd, nextKey, unsafe.Pointer(&entry))
+	nextEntry , err := m.Lookup(nextKey.Convert())
+
 	if err != nil {
 		return false
 	}
 
+	entry := nextEntry.(*CtEntry)
 	if entry.lifetime <= interval {
-		bpf.DeleteElement(m.Fd, nextKey)
+		m.Delete(nextKey.Convert())
 		(*deleted)++
 	} else {
 		entry.lifetime -= interval
-		bpf.UpdateElement(m.Fd, nextKey, unsafe.Pointer(&entry), 0)
+		m.Update(nextKey.Convert(), entry.Convert())
 	}
 
 	return true
 }
 
-func (m *CtMap) GC(interval uint16) int {
+func GC(m *bpf.Map, interval uint16, mapName string) int {
 	deleted := 0
 
-	switch m.Type {
-	case CtTypeIPv6:
+	switch mapName {
+	case MapName6:
 		var key, nextKey CtKey6
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
-	case CtTypeIPv4:
-		var key, nextKey CtKey4
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
-			key = nextKey
-		}
+	//case MapName4:
+	//	var key, nextKey CtKey4
+	//	for doGc(m, interval, &key, &nextKey, &deleted) {
+	//		key = nextKey
+	//	}
 	}
 
 	return deleted
