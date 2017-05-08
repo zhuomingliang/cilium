@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 // bpfCtListCmd represents the bpf_ct_list command
@@ -28,8 +29,8 @@ var bpfCtListCmd = &cobra.Command{
 	Short:  "List connection tracking entries",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
-		dumpCtProto(ctmap.MapName6+args[0])
-		dumpCtProto(ctmap.MapName4+args[0])
+		dumpCtProto(ctmap.MapName6, args[0])
+		dumpCtProto(ctmap.MapName4, args[0])
 	},
 }
 
@@ -37,12 +38,17 @@ func init() {
 	bpfCtCmd.AddCommand(bpfCtListCmd)
 }
 
-func dumpCtProto(name string) {
+func dumpCtProto(name, eId string) {
 
-	//m, err := bpf.OpenMap(name)
-	// TODO: fix dump :)
-	out := "temp"
-	var err error = nil
+	file := bpf.MapPath(name + eId)
+	log.Infof("Opening map: %s", file)
+	m, err := bpf.OpenMap(file)
+	defer m.Close()
+
+	if err != nil {
+		Fatalf("Unable to open map %s: %s", name, err)
+	}
+	out, err := ctmap.Dump(m, name)
 	if err != nil {
 		Fatalf("Error while dumping BPF Map: %s\n", err)
 	}

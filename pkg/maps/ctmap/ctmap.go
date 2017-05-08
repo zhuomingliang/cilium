@@ -16,9 +16,12 @@ package ctmap
 
 import (
 	"github.com/op/go-logging"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"unsafe"
+	"bytes"
+	"fmt"
 )
 
 var log    = logging.MustGetLogger("cilium")
@@ -26,8 +29,8 @@ var log    = logging.MustGetLogger("cilium")
 type CtType int
 
 const (
-       CtTypeIPv6 CtType = iota
-       CtTypeIPv4
+	CtTypeIPv6 CtType = iota
+	CtTypeIPv4
 )
 
 const (
@@ -82,6 +85,9 @@ type ServiceKey interface {
 
 	// Convert between host byte order and map byte order
 	Convert() ServiceKey
+
+	// Dumps contents of key to buffer. Returns true if successful.
+	Dump(buffer *bytes.Buffer) bool
 }
 
 // ServiceValue is the interface describing protocol independent value for services map.
@@ -137,15 +143,17 @@ func (s *CtEntry) Convert() ServiceValue {
 //	Dump(buffer *bytes.Buffer) bool
 //}
 
-//type CtEntryDump struct {
-//	Key   CtKey
-//	Value CtEntry
-//}
+type CtEntryDump struct {
+	Key   ServiceKey
+	Value CtEntry
+}
 
 // Dump iterates through Map m and writes the values of the ct entries to a string.
-/*func (m *CtMap) Dump() (string, error) {
+
+//TODO - make this toString
+func Dump(m *bpf.Map, mapName string) (string, error) {
 	var buffer bytes.Buffer
-	entries, err := m.DumpToSlice()
+	entries, err := DumpToSlice(m, mapName)
 	if err != nil {
 		return "", err
 	}
@@ -171,63 +179,58 @@ func (s *CtEntry) Convert() ServiceValue {
 	return buffer.String(), nil
 }
 
-func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
-	var entry CtEntry
+func DumpToSlice(m *bpf.Map, mapName string) ([]CtEntryDump, error) {
 	entries := []CtEntryDump{}
 
-	switch m.Type {
-	case CtTypeIPv6:
+	switch mapName {
+	case MapName6:
 		var key, nextKey CtKey6
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(key.Convert(), nextKey.Convert())
+			log.Infof("key addr: %p, nextKey addr: %p", &key, &nextKey)
 			if err != nil {
 				break
 			}
-
-			entry, err = key.Map().Lookup(key.Convert())
-			//err = bpf.LookupElement(
-			//	m.Fd,
-			//	unsafe.Pointer(&nextKey),
-			//	unsafe.Pointer(&entry),
-			//)
+			log.Infof("DumpToSlice: GetNextKey no error")
+			entry, err := m.Lookup(nextKey.Convert())
 			if err != nil {
 				return nil, err
 			}
-
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			log.Infof("DumpToSlice: Lookup key no error")
+			ctEntry := entry.(*CtEntry)
+			eDump := CtEntryDump{Key: &nextKey, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 
-	case CtTypeIPv4:
+	case MapName4:
 		var key, nextKey CtKey4
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(key.Convert(), nextKey.Convert())
+			log.Infof("key addr: %p, nextKey addr: %p", &key, &nextKey)
 			if err != nil {
 				break
 			}
+			log.Infof("DumpToSlice: GetNextKey no error")
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err := m.Lookup(nextKey.Convert())
 			if err != nil {
 				return nil, err
 			}
-
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			log.Infof("DumpToSlice: Lookup key no error")
+			ctEntry := entry.(*CtEntry)
+			eDump := CtEntryDump{Key: &nextKey, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 	}
-
 	return entries, nil
-}*/
+}
 
-// TODO: callees of this iterate through the map using a for loop until 'false' is returned
+// doGC removes key and its corresponding value from Map m if key has a lifetime less than interval. It sets nextKey's address to be the key after key in map m.
+// Returns false if there is no other key after key in Map m, and increments deleted if an item is removed from m.
 func doGc(m *bpf.Map, interval uint16, key ServiceKey, nextKey ServiceKey, deleted *int) bool {
 	err := m.GetNextKey(key, nextKey)
 
@@ -265,9 +268,9 @@ func doGc(m *bpf.Map, interval uint16, key ServiceKey, nextKey ServiceKey, delet
 	return true
 }
 
+// GC runs garbage collection for map m with name mapName with interval interval. It returns how many items were deleted from m.
 func GC(m *bpf.Map, interval uint16, mapName string) int {
 	deleted := 0
-
 
 	switch mapName {
 	case MapName6:
