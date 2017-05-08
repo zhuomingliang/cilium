@@ -416,9 +416,6 @@ func (m *Map) openIfNotOpened() error {
 
 //GetNextKey returns the next key in the Map after key.
 func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
 	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err

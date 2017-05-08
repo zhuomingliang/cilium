@@ -2,6 +2,7 @@ package ctmap
 
 import (
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"bytes"
 	"fmt"
@@ -55,7 +56,8 @@ func (k *CtKey6) SetFlags(flags uint8) {k.flags = flags}
 func (k *CtKey6) Convert() ServiceKey {
 	n := *k
 	// TODO: what more do I have to add here?
-	//n.Port = common.Swab16(n.Port)
+	n.sport = common.Swab16(n.sport)
+	n.dport = common.Swab16(n.dport)
 	return &n
 }
 

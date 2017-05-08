@@ -33,19 +33,29 @@ func runGC(e *endpoint.Endpoint, name string) {
 	// Get path of map that is tied to this endpoint ID
 	file := bpf.MapPath(name + strconv.Itoa(int(e.ID)))
 
-	// Why is this necessary?
-	// If LRUHashtable, no need to garbage collect; throw out.
-	//if info.MapType == bpf.MapTypeLRUHash {
-	//	return
-	//}
 
 	m, err := bpf.OpenMap(file)
+	defer m.Close()
+
 	if err != nil {
 		log.Warningf("Unable to open map %s: %s", name, err)
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 	}
 
+
+	if m == nil {
+		log.Infof("ct.runGC: runGC map nil")
+	}
+
+	// If LRUHashtable, no need to garbage collect a LRUHashtable cleans itself up.
+	if m.MapInfo.MapType == bpf.MapTypeLRUHash {
+		return
+	}
+
+	log.Infof("ct.runGC: preGC")
 	deleted := ctmap.GC(m, uint16(GcInterval), name)
+	log.Infof("ct.runGC: postGC")
+
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
 	}
