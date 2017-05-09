@@ -42,14 +42,12 @@ func runGC(e *endpoint.Endpoint, name string) {
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 	}
 
-	// If LRUHashtable, no need to garbage collect a LRUHashtable cleans itself up.
+	// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 	if m.MapInfo.MapType == bpf.MapTypeLRUHash {
 		return
 	}
 
-	//log.Infof("ct.runGC: preGC")
 	deleted := ctmap.GC(m, uint16(GcInterval), name)
-	//log.Infof("ct.runGC: postGC")
 
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)

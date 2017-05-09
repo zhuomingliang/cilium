@@ -176,31 +176,20 @@ func doGc(m *bpf.Map, interval uint16, key ServiceKey, nextKey ServiceKey, delet
 
 	nextEntry , err := m.Lookup(nextKey.Convert())
 
-	//log.Infof("doGC: lookup completed")
 	if err != nil {
 		log.Errorf("error during map Lookup: %s", err)
 		return false
 	}
 
 	entry := nextEntry.(*CtEntry)
-	//log.Infof("doGc: entry lifetime: %d", entry.lifetime)
-	//log.Infof("interval: %d", interval)
 	if entry.lifetime <= interval {
 		m.Delete(nextKey.Convert())
 		(*deleted)++
-		//log.Infof("doGC: entry deleted")
 	} else {
 		entry.lifetime -= interval
-		//log.Infof("doGC: entry not deleted")
 		m.Update(nextKey.Convert(), entry.Convert())
-		//log.Infof("doGC: entry lifetime updated: %d", entry.lifetime)
-		//log.Infof("doGC: checking if entry was actually updated...")
-		//dummy, _ := m.Lookup(nextKey.Convert())
-		//dummyEntry := dummy.(*CtEntry)
-		//log.Infof("doGC: entry lifetime after update: %d", dummyEntry.lifetime)
 	}
 
-	//log.Infof("doGC: exiting doGc")
 	return true
 }
 
@@ -210,11 +199,8 @@ func GC(m *bpf.Map, interval uint16, mapName string) int {
 
 	switch mapName {
 	case MapName6:
-		//log.Infof("GC MapName6")
 		var key, nextKey CtKey6
 		for doGc(m, interval, &key, &nextKey, &deleted) {
-			//log.Infof("GC: key address: %p", key)
-			//log.Infof("GC: nextKey address: %p", nextKey)
 			key = nextKey
 		}
 	case MapName4:
@@ -225,6 +211,5 @@ func GC(m *bpf.Map, interval uint16, mapName string) int {
 		}
 	}
 
-	//log.Infof("exiting ctmap GC, deleted = %d", deleted)
 	return deleted
 }
