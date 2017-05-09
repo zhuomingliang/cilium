@@ -45,7 +45,7 @@ type ServiceKey interface {
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
 
-	// Convert between host byte order and map byte order
+	// Convert converts fields between host byte order and map byte order if necessary.
 	Convert() ServiceKey
 
 	// Dumps contents of key to buffer. Returns true if successful.
@@ -55,6 +55,9 @@ type ServiceKey interface {
 // ServiceValue is the interface describing protocol independent value for services map.
 type ServiceValue interface {
 	bpf.MapValue
+
+	// Convert converts fields between host byte order and map byte order if necessary.
+	Convert() ServiceValue
 }
 
 // CtEntry represents an entry in the connection tracking table.
@@ -72,14 +75,12 @@ type CtEntry struct {
 func (s *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
 func (s *CtEntry) Convert() ServiceValue {
-	//TODO: figure out if need to run Swab16 here
 	n := *s
-	//n.RevNat = common.Swab16(n.RevNat)
-	//n.Port = common.Swab16(n.Port)
-	//n.Weight = common.Swab16(n.Weight)
+	n.revnat = common.Swab16(n.revnat)
 	return &n
 }
 
+// CtEntryDump represents the key and value contained in the conntrack map.
 type CtEntryDump struct {
 	Key   ServiceKey
 	Value CtEntry

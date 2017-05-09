@@ -41,11 +41,9 @@ func NewCtKey4(addr net.IP, sport uint16, dport uint16, nexthdr u8proto.U8proto,
 	return &key
 }
 
-// TODO: remove me - implementing bpf.MapKey here
 func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *CtKey4) NewValue() bpf.MapValue    { return &CtEntry{} }
 
-// TODO: remove me - implementing ServiceKey
 func (k CtKey4) Map() *bpf.Map              { return Service6Map }
 
 func (k *CtKey4) Convert() ServiceKey {
@@ -58,6 +56,7 @@ func (k *CtKey4) Convert() ServiceKey {
 func (k *CtKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.addr, k.sport, k.dport, k.nexthdr, k.flags)
 }
+
 
 func (key CtKey4) Dump(buffer *bytes.Buffer) bool {
 	if key.nexthdr == 0 {
