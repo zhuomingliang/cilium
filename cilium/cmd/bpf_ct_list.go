@@ -41,7 +41,7 @@ func init() {
 func dumpCtProto(name, eId string) {
 
 	file := bpf.MapPath(name + eId)
-	log.Infof("Opening map: %s", file)
+	//log.Infof("Opening map: %s", file)
 	m, err := bpf.OpenMap(file)
 	defer m.Close()
 
@@ -52,6 +52,5 @@ func dumpCtProto(name, eId string) {
 	if err != nil {
 		Fatalf("Error while dumping BPF Map: %s\n", err)
 	}
-
 	fmt.Println(out)
 }

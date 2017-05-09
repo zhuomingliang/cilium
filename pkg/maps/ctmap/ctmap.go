@@ -184,48 +184,59 @@ func DumpToSlice(m *bpf.Map, mapName string) ([]CtEntryDump, error) {
 
 	switch mapName {
 	case MapName6:
-		var key, nextKey CtKey6
+		var ctKeyTest, ctNextKeyTest CtKey6
+		key := &ctKeyTest
+		nextKey := &ctNextKeyTest
+		//var key, nextKey *CtKey6
 		for {
-			err := m.GetNextKey(key.Convert(), nextKey.Convert())
-			log.Infof("key addr: %p, nextKey addr: %p", &key, &nextKey)
+			err := m.GetNextKey(key, nextKey)
+			//log.Infof("key addr: %p, nextKey addr: %p", key, nextKey)
 			if err != nil {
+				//log.Infof("DumpToSlice: GetNextKey error")
 				break
 			}
-			log.Infof("DumpToSlice: GetNextKey no error")
 			entry, err := m.Lookup(nextKey.Convert())
+			//log.Infof("DumpToSlice: entry addr: %p", &entry)
 			if err != nil {
-				return nil, err
+				//log.Infof("DumpToSlice: Lookup error")
+				break
 			}
-			log.Infof("DumpToSlice: Lookup key no error")
 			ctEntry := entry.(*CtEntry)
-			eDump := CtEntryDump{Key: &nextKey, Value: *ctEntry}
+			eDump := CtEntryDump{Key: nextKey, Value: *ctEntry}
+			//log.Infof("eDump: %v", eDump)
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 
 	case MapName4:
-		var key, nextKey CtKey4
+		var ctKeyTest, ctNextKeyTest CtKey4
+                key := &ctKeyTest
+                nextKey := &ctNextKeyTest
+		//var key, nextKey *CtKey4
 		for {
-			err := m.GetNextKey(key.Convert(), nextKey.Convert())
-			log.Infof("key addr: %p, nextKey addr: %p", &key, &nextKey)
+			//log.Infof("pre - key addr: %p, nextKey addr: %p", &key, &nextKey)
+			//log.Infof("key: %v, nextKey: %v", key, nextKey)
+			err := m.GetNextKey(key, nextKey)
+			//log.Infof("key addr: %p, nextKey addr: %p", &key, &nextKey)
+			//log.Infof("key: %v, nextKey: %v", key, nextKey)
 			if err != nil {
+				//log.Infof("DumpToSlice: GetNextKey error")
 				break
 			}
-			log.Infof("DumpToSlice: GetNextKey no error")
-
 			entry, err := m.Lookup(nextKey.Convert())
 			if err != nil {
-				return nil, err
+				//log.Infof("DumpToSlice: Lookup error")
+				break
 			}
-			log.Infof("DumpToSlice: Lookup key no error")
 			ctEntry := entry.(*CtEntry)
-			eDump := CtEntryDump{Key: &nextKey, Value: *ctEntry}
+			eDump := CtEntryDump{Key: nextKey, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 	}
+	//log.Infof("entries: %v", entries)
 	return entries, nil
 }
 

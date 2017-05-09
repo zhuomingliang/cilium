@@ -5,6 +5,6 @@ set -e
 # Set path to contain Go binaries explicitly; see issue 566.
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 
-for test in *.sh; do
-	./$test
-done
+#for test in *.sh; do
+	./01-ct.sh
+#done

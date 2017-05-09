@@ -9,7 +9,6 @@ import (
 	"net"
 	"github.com/cilium/cilium/pkg/bpf"
 	"unsafe"
-	"encoding/binary"
 )
 
 var (
@@ -66,25 +65,6 @@ func (k *CtKey6) String() string {
 }
 
 //TODO: remove me - finish implementing ServiceKey here.
-
-// TODO: copied from lbmap/ipv4.go - talk to Thomas about what this is doing.
-func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	svcKey := CtKey6{}
-	svcVal := CtEntry{}
-
-	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
-	}
-
-	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
-	}
-
-	return svcKey.Convert(), svcVal.Convert(), nil
-}
-
 
 // TODO: get rid of this and implement dump according to the Map interface.
 // TODO: what is this doing??
