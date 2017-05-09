@@ -110,7 +110,7 @@ type MapInfo struct {
 
 type Map struct {
 	MapInfo
-	fd   int
+	Fd   int
 	name string
 	path string
 	once sync.Once
@@ -130,7 +130,7 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 }
 
 func (m *Map) GetFd() int {
-	return m.fd
+	return m.Fd
 }
 
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
@@ -197,7 +197,7 @@ func OpenMap(name string) (*Map, error) {
 
 	return &Map{
 		MapInfo: *info,
-		fd:      fd,
+		Fd:      fd,
 		name:    path.Base(name),
 		path:    name,
 	}, nil
@@ -219,7 +219,7 @@ func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.fd != 0 {
+	if m.Fd != 0 {
 		return false, nil
 	}
 
@@ -232,7 +232,7 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		return false, err
 	}
 
-	m.fd = fd
+	m.Fd = fd
 
 	return isNew, nil
 }
@@ -240,7 +240,7 @@ func (m *Map) OpenOrCreate() (bool, error) {
 func (m *Map) Open() error {
 	var err error
 	m.once.Do(func() {
-		if m.fd != 0 {
+		if m.Fd != 0 {
 			err = nil
 			return
 		}
@@ -254,7 +254,7 @@ func (m *Map) Open() error {
 			return
 		}
 
-		m.fd = fd
+		m.Fd = fd
 	})
 	return err
 }
@@ -263,9 +263,9 @@ func (m *Map) Close() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.fd != 0 {
-		unix.Close(m.fd)
-		m.fd = 0
+	if m.Fd != 0 {
+		unix.Close(m.Fd)
+		m.Fd = 0
 	}
 
 	return nil
@@ -290,7 +290,7 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 
 	for {
 		err := GetNextKey(
-			m.fd,
+			m.Fd,
 			unsafe.Pointer(&key[0]),
 			unsafe.Pointer(&nextKey[0]),
 		)
@@ -300,7 +300,7 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 		}
 
 		err = LookupElement(
-			m.fd,
+			m.Fd,
 			unsafe.Pointer(&nextKey[0]),
 			unsafe.Pointer(&value[0]),
 		)
@@ -334,7 +334,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		return nil, err
 	}
 
-	err = LookupElement(m.fd, key.GetKeyPtr(), value.GetValuePtr())
+	err = LookupElement(m.Fd, key.GetKeyPtr(), value.GetValuePtr())
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 		return err
 	}
 
-	return UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	return UpdateElement(m.Fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
 }
 
 func (m *Map) Delete(key MapKey) error {
@@ -362,7 +362,7 @@ func (m *Map) Delete(key MapKey) error {
 		return err
 	}
 
-	return DeleteElement(m.fd, key.GetKeyPtr())
+	return DeleteElement(m.Fd, key.GetKeyPtr())
 }
 
 
@@ -384,7 +384,7 @@ func (m *Map) DeleteAll() error {
 
 	for {
 		err := GetNextKey(
-			m.fd,
+			m.Fd,
 			unsafe.Pointer(&key[0]),
 			unsafe.Pointer(&nextKey[0]),
 		)
@@ -393,7 +393,7 @@ func (m *Map) DeleteAll() error {
 			break
 		}
 
-		err = DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
+		err = DeleteElement(m.Fd, unsafe.Pointer(&nextKey[0]))
 		if err != nil {
 			return err
 		}
@@ -405,7 +405,7 @@ func (m *Map) DeleteAll() error {
 }
 // openIfNotOpened opens Map m if it isn't opened.
 func (m *Map) openIfNotOpened() error {
-	if m.fd == 0 {
+	if m.Fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
@@ -416,13 +416,13 @@ func (m *Map) openIfNotOpened() error {
 
 //GetNextKey returns the next key in the Map after key.
 func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
-	if m.fd == 0 {
+	if m.Fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
 	}
 
-	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
+	err := GetNextKey(m.Fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
 
 	if err != nil {
 		return err

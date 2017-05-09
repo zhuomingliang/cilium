@@ -48,7 +48,7 @@ func dumpCtProto(name, eId string) {
 	if err != nil {
 		Fatalf("Unable to open map %s: %s", name, err)
 	}
-	out, err := ctmap.Dump(m, name)
+	out, err := ctmap.ToString(m, name)
 	if err != nil {
 		Fatalf("Error while dumping BPF Map: %s\n", err)
 	}

@@ -129,7 +129,7 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) 
 	return 0, fmt.Errorf("Unable to create map: %s", err)
 }
 
-// UpdateElement updates the map in fd with the given value in the given key.
+// UpdateElement updates the map in Fd with the given value in the given key.
 // The flags can have the following values (if you include "uapi/linux/bpf.h"):
 // C.BPF_ANY to create new element or update existing;
 // C.BPF_NOEXIST to create new element if it didn't exist;
@@ -157,7 +157,7 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	return nil
 }
 
-// LookupElement looks up for the map value stored in fd with the given key. The value
+// LookupElement looks up for the map value stored in Fd with the given key. The value
 // is stored in the value unsafe.Pointer.
 func LookupElement(fd int, key, value unsafe.Pointer) error {
 	uba := C.union_bpf_attr{}
@@ -203,7 +203,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 	return nil
 }
 
-// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
+// GetNextKey stores, in nextKey, the next key after the key of the map in Fd.
 func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_get_next_key(
@@ -226,7 +226,7 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	return nil
 }
 
-// ObjPin stores the map's fd in pathname.
+// ObjPin stores the map's Fd in pathname.
 func ObjPin(fd int, pathname string) error {
 	pathStr := C.CString(pathname)
 	uba := C.union_bpf_attr{}
@@ -245,7 +245,7 @@ func ObjPin(fd int, pathname string) error {
 	return nil
 }
 
-// ObjGet reads the pathname and returns the map's fd read.
+// ObjGet reads the pathname and returns the map's Fd read.
 func ObjGet(pathname string) (int, error) {
 	pathStr := C.CString(pathname)
 	uba := C.union_bpf_attr{}
