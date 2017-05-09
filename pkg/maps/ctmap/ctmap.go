@@ -18,20 +18,12 @@ import (
 	"github.com/op/go-logging"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"unsafe"
 	"bytes"
 	"fmt"
 )
 
 var log    = logging.MustGetLogger("cilium")
-
-type CtType int
-
-const (
-	CtTypeIPv6 CtType = iota
-	CtTypeIPv4
-)
 
 const (
 	MapName6 = "cilium_ct6_"
@@ -50,38 +42,8 @@ type ServiceKey interface {
 	// Returns human readable string representation
 	String() string
 
-	// Returns true if the key is of type IPv6
-	IsIPv6() bool
-
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
-
-	// Returns a RevNatValue matching a ServiceKey
-	//RevNatValue() uint16
-
-	// Returns the source port set in the key or 0
-	//GetSrcPort() uint16
-
-	// Set source port to map to (left blank for master)
-	SetSrcPort(uint16)
-
-	// Returns the destination port set in the key or 0
-	//GetDstPort() uint16
-
-	//Set destination port to map to (left blank for master)
-	SetDstPort(uint16)
-
-	// Returns the next header
-	//GetNextHdr() u8proto.U8proto
-
-	SetNextHdr(u8proto.U8proto)
-
-
-	// Returns the flags
-	//GetFlags() uint8
-
-	// Sets the flags
-	SetFlags(uint8)
 
 	// Convert between host byte order and map byte order
 	Convert() ServiceKey
@@ -93,27 +55,6 @@ type ServiceKey interface {
 // ServiceValue is the interface describing protocol independent value for services map.
 type ServiceValue interface {
 	bpf.MapValue
-
-	// Returns human readable string representation
-	//String() string
-
-	// Returns the  matching a ServiceValue
-	//RevNatKey() uint16
-
-	// Set source port to map to (left blank for master)
-	//SetSrcPort(uint16)
-
-	//Set destination port to map to (left blank for master)
-	//SetDstPort(uint16)
-
-	// Sets the next header
-	//SetNextHdr(u8proto.U8proto)
-
-	// Sets the flags
-	//SetFlags(uint8)
-
-	// Convert between host byte order and map byte order
-	// Convert() ServiceValue
 }
 
 // CtEntry represents an entry in the connection tracking table.
@@ -138,10 +79,6 @@ func (s *CtEntry) Convert() ServiceValue {
 	//n.Weight = common.Swab16(n.Weight)
 	return &n
 }
-
-//type CtKey interface {
-//	Dump(buffer *bytes.Buffer) bool
-//}
 
 type CtEntryDump struct {
 	Key   ServiceKey

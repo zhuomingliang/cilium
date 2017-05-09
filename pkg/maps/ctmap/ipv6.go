@@ -46,11 +46,6 @@ func (k *CtKey6) NewValue() bpf.MapValue    { return &CtEntry{} }
 
 // TODO: remove me - implementing ServiceKey
 func (k CtKey6) Map() *bpf.Map              { return Service6Map }
-func (k *CtKey6) IsIPv6() bool {return true}
-func (k *CtKey6) SetSrcPort(port uint16)         { k.sport = port }
-func (k *CtKey6) SetDstPort(port uint16)         { k.dport = port }
-func (k *CtKey6) SetNextHdr(hdr u8proto.U8proto) { k.nexthdr = hdr}
-func (k *CtKey6) SetFlags(flags uint8) {k.flags = flags}
 
 func (k *CtKey6) Convert() ServiceKey {
 	n := *k
