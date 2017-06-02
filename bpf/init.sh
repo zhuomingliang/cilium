@@ -30,10 +30,10 @@ set -e
 set -x
 
 # Enable JIT
-echo 1 > /proc/sys/net/core/bpf_jit_enable
+echo 1 > /proc/sys/net/core/bpf_jit_enable || true
 
 # Disable rp_filter
-echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter || true
 
 # Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 # interface (https://github.com/docker/libnetwork/issues/1720)
