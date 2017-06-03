@@ -45,21 +45,13 @@ func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
 	return &r.Metadata
 }
 
-// Parse parses a CiliumNetworkPolicy and returns a list of internal policy rules
-func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
-	if err := r.Spec.Validate(); err != nil {
-		return nil, fmt.Errorf("Invalid spec: %s", err)
-	}
-
-	if r.Metadata.Name == "" {
-		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
-	}
-
-	namespace := ExtractNamespace(&r.Metadata)
-
+func parseRule(r api.Rule, metadata *metav1.ObjectMeta) *api.Rule {
 	retRule := &api.Rule{}
-	if r.Spec.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.Spec.EndpointSelector.LabelSelector)
+
+	namespace := ExtractNamespace(metadata)
+
+	if r.EndpointSelector.LabelSelector != nil {
+		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
@@ -69,9 +61,9 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 	}
 
-	if r.Spec.Ingress != nil {
-		retRule.Ingress = make([]api.IngressRule, len(r.Spec.Ingress))
-		for i, ing := range r.Spec.Ingress {
+	if r.Ingress != nil {
+		retRule.Ingress = make([]api.IngressRule, len(r.Ingress))
+		for i, ing := range r.Ingress {
 			if ing.FromEndpoints != nil {
 				retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
 				for j, ep := range ing.FromEndpoints {
@@ -143,5 +135,65 @@ func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 
 // GetListMeta returns the metadata of the object
 func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
+	return &r.Metadata
+}
+
+// CiliumNetworkPolicySet is a Kubernetes third-party resource with an extended
+// version of NetworkPolicy
+type CiliumNetworkPolicySet struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	Metadata metav1.ObjectMeta `json:"metadata"`
+
+	// Spec is the desired Cilium specific rule specification.
+	Spec []api.Rule `json:"spec"`
+}
+
+// GetObjectKind returns the kind of the object
+func (r *CiliumNetworkPolicySet) GetObjectKind() schema.ObjectKind {
+	return &r.TypeMeta
+}
+
+// GetObjectMeta returns the metadata of the object
+func (r *CiliumNetworkPolicySet) GetObjectMeta() metav1.Object {
+	return &r.Metadata
+}
+
+// Parse parses a CiliumNetworkPolicySet and returns a list of internal policy rules
+func (r *CiliumNetworkPolicySet) Parse() (api.Rules, error) {
+	if r.Metadata.Name == "" {
+		return nil, fmt.Errorf("CiliumNetworkPolicySet must have name")
+	}
+
+	rules := make(api.Rules, len(r.Spec))
+
+	for i, spec := range r.Spec {
+		if err := spec.Validate(); err != nil {
+			return nil, fmt.Errorf("Invalid spec: %s", err)
+		}
+
+		rules[i] = parseRule(spec, &r.Metadata)
+	}
+
+	return rules, nil
+}
+
+// CiliumNetworkPolicySetList is a list of CiliumNetworkPolicySet objects
+type CiliumNetworkPolicySetList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	Metadata metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumNetworkPolicySet
+	Items []CiliumNetworkPolicySet `json:"items"`
+}
+
+// GetObjectKind returns the kind of the object
+func (r *CiliumNetworkPolicySetList) GetObjectKind() schema.ObjectKind {
+	return &r.TypeMeta
+}
+
+// GetListMeta returns the metadata of the object
+func (r *CiliumNetworkPolicySetList) GetListMeta() metav1.List {
 	return &r.Metadata
 }
