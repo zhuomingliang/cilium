@@ -5,11 +5,11 @@ NAMESPACE="kube-system"
 source "../helpers.bash"
 source /home/vagrant/.profile
 function cleanup {
-	kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_l7_policy.yaml
-	kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
-	kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/demo.yaml
+	kubectl delete -f ../../examples/minikube/l3_l4_l7_policy.yaml
+	kubectl delete -f ../../examples/minikube/l3_l4_policy.yaml
+	kubectl delete -f ../../examples/minikube/demo.yaml
 	kubectl delete -f cilium-ds.yaml
-	kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/rbac.yaml
+	kubectl delete -f ../../examples/kubernetes/rbac.yaml
 }
 
 trap cleanup exit
@@ -25,12 +25,12 @@ done
 
 
 echo "----- adding RBAC for Cilium -----"
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/rbac.yaml
+kubectl create -f ../../examples/kubernetes/rbac.yaml
 
 echo "----- deploying Cilium Daemon Set onto cluster -----"
-wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
-sed -i s/"\/var\/lib\/kubelet\/kubeconfig"/"\/etc\/kubernetes\/kubelet.conf"/g cilium-ds.yaml
-sed -i s/"cilium\/cilium:stable"/"localhost:5000\/cilium:build_test"/g cilium-ds.yaml
+cp ../../examples/kubernetes/cilium-ds.yaml .
+sed -i s+"/var/lib/kubelet/kubeconfig"+"/etc/kubernetes/kubelet.conf"+g cilium-ds.yaml
+sed -i s+"cilium/cilium:stable"+"localhost:5000/cilium:build_test"+g cilium-ds.yaml
 kubectl apply -f cilium-ds.yaml
 
 until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
@@ -38,11 +38,17 @@ until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ pr
 	sleep 5
 done
 
-# Let Cilium spin up.
-sleep 15
+
+CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
+until [[ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium status | grep "Cilium" | awk '{ print $2}')" == "Ok" ]]; do
+	echo "----- Waiting for Cilium status to be OK -----"
+	sleep 5
+done
+
+
 
 echo "----- deploying demo application onto cluster -----"
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/demo.yaml
+kubectl create -f ../../examples/minikube/demo.yaml
 
 until [ "$(kubectl get pods | grep -v STATUS | grep -c "Running")" -eq "4" ]; do
 	echo "----- Waiting for demo apps to get into 'Running' state -----"
@@ -50,9 +56,8 @@ until [ "$(kubectl get pods | grep -v STATUS | grep -c "Running")" -eq "4" ]; do
 done
 
 echo "----- adding L3 L4 policy  -----"
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
+kubectl create -f ../../examples/minikube/l3_l4_policy.yaml
 
-CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
 	echo "----- Waiting for endpoints to get into 'ready' state -----"
 	sleep 5	      
@@ -88,7 +93,7 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 echo "----- creating L7-aware policy -----"
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_l7_policy.yaml
+kubectl create -f ../../examples/minikube/l3_l4_l7_policy.yaml
 
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do

@@ -7,12 +7,16 @@ $build = <<SCRIPT
 docker run -d -p 5000:5000 registry
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 docker build -t cilium:build_test /home/vagrant/go/src/github.com/cilium/cilium
-export ID=$(docker images | grep "build_test" | awk '{print $3}')
-docker tag $ID localhost:5000/cilium:build_test
+docker tag $(docker images | grep "build_test" | awk '{print $3}') localhost:5000/cilium:build_test
 docker push localhost:5000/cilium:build_test
 SCRIPT
 
 $k8s = <<SCRIPT
+export DE_VERSION="1.11.2-0~xenial"
+export KUBELET_VERSION="1.6.4-00"
+export KUBEADM_VERSION="1.6.4-00"
+export KUBECTL_VERSION="1.6.4-00"
+export KUBE_CNI_VERSION="0.5.1-00"
 sudo apt-get update && sudo apt-get install -y apt-transport-https
 sudo touch /etc/apt/sources.list.d/kubernetes.list
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
@@ -21,8 +25,8 @@ deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 "
 sudo apt-get update
-sudo apt-get install -y docker-engine
-sudo apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+sudo apt-get install -y docker-engine=${DE_VERSION}
+sudo apt-get install -y kubelet=${KUBELET_VERSION} kubeadm=${KUBEADM_VERSION} kubectl=${KUBECTL_VERSION} kubernetes-cni=${KUBE_CNI_VERSION}
 sudo kubeadm init
 sudo cp /etc/kubernetes/admin.conf /home/vagrant/admin.conf
 sudo chown 1000:1000 /home/vagrant/admin.conf
