@@ -192,7 +192,7 @@ To resolve this potential conflict, Cilium prefixes all label keys with
 ``k8s:role=frontend``, ``container:user=joe``, ``k8s:role=backend``. This means
 that when you run a Docker container using ``docker run [...] -l foo=bar``, the
 label ``container:foo=bar`` will appear on the Cilium endpoint representing the
-container. Similiarly, a Kubernetes pod started with the label ``foo: bar``
+container. Similarly, a Kubernetes pod started with the label ``foo: bar``
 will be represented with a Cilium endpoint associated with the label
 ``k8s:foo=bar``. A unique name is allocated for each potential source. The
 following label sources are currently supported:
@@ -208,42 +208,178 @@ label source defaults to ``any:`` which will match all labels regardless of
 their source. If a source is provided, the source of the selecting and matching
 labels need to match.
 
-******************
+*********
+Endpoints
+*********
+
+Cilium makes application containers available on the network by assigning them
+IP addresses. Multiple application containers can share the same IP address, a
+typical example for this model is a Kubernetes Pod_. All application containers
+which share a common address are grouped together in what Cilium refers to as
+an *endpoint*.
+
+Allocating individual IP addresses enables the use of the entire Layer 4 port
+range by each *endpoint*. This essentially allows multiple application
+container running on the same cluster node to all bind to well known ports such
+`80` without causing any conflicts.
+
+The default behaviour of Cilium is to assign both an IPv6 and IPv4 address to
+every *endpoint*. However, this behaviour can be configured to only allocate an
+IPv4 or IPv6 address. If both an IPv6 and IPv4 address are assigned, either
+address can be used to reach the endpoint. The same behaviour will apply with
+regard to policy rules, loadbalancing, etc.
+
+Identification
+==============
+
+For identification purposes, Cilium assign an *endpoint id* to all endpoints on
+a cluster node. The *endpoint id* is unique within the context of a single
+cluster node.
+
+Metadata (Labels)
+=================
+
+An *endpoint* automatically derives metadata from the application containers
+associated with the *endpoint*. This metadata will depend on the orchestration
+system and container runtime in use. The following metadata retrieval
+mechanisms are currently supported:
+
++---------------------+---------------------------------------------------+
+| System              | Description                                       |
++---------------------+---------------------------------------------------+
+| Kubernetes          | Pod labels                                        |
++---------------------+---------------------------------------------------+
+| containerd (Docker) | Container labels                                  |
++---------------------+---------------------------------------------------+
+
+This metadata is attached to *endpoints* in the form of Labels_.
+
+The following example launches a container with the label ``app=netperf`` which
+is then associated with the *endpoint*. The label is prefixed with
+``container:`` to indicate that the label was derived from the container
+runtime.
+
+::
+
+    $ docker run --net cilium -d -l app=netperf tgraf/netperf
+    aaff7190f47d071325e7af06577f672beff64ccc91d2b53c42262635c063cf1c
+    $  cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4            STATUS
+               ENFORCEMENT
+    62006      Disabled      257        container:app=netperf         f00d::a00:20f:0:f236   10.15.116.202   ready
+
+****
+Node
+****
+
+Cilium refers to a node as an individual member of a cluster. Each node must be
+running the ``cilium-agent`` and will operate mostly independent.
+Synchronization of state between nodes is kept to a minimum.
+
+Node Address
+============
+
+
+Node Prefix
+===========
+
++-------+--------------------------------------------------+
+| Type  | Node Prefix                                      |
++-------+--------------------------------------------------+
+| IPv4  | ``10.X.0.0/16`` where ``X`` is derived using the |
+|       | last 8 bits of the first IPv4 address in the list|
+|       | of global scope addresses on the cluster node.   |
++-------+--------------------------------------------------+
+| IPv6  | ``f00d:0:0:0:<ipv4-address>::/96`` where the     |
+|       | IPv4 address is the first address in the list of |
+|       | global scope addresses on the cluster node.      |
++-------+--------------------------------------------------+
+
+*********************
+Multi Host Networking
+*********************
+
+..  Building microservices on top of container orchestrations platforms like Docker
+    and Kubernetes means that application architects assume the existence of core
+    platform capabilities like service discovery and service-based load-balancing
+    to map between a logical service identifier and the IP address assigned to the
+    containers / pods actually running that service.   This, along with the fact that
+    Cilium provides network security and visibility based on container identity,
+    not addressing, means that Cilium can keep the underlying network addressing
+    model extremely simple.
+
+Cilium keeps the networking concept as simple as possible and connects all
+endpoints_ in a cluster using a single logical Layer 3 network. The question of
+reachability between endpoints is of no concern on the networking topology
+level. Reachability between endpoints may be subject to change throughout the
+lifecycle of an application container. There is therefore no concept of subnets
+or virtual networks for the purpose of isolation.  Reachability is achieved
+using an independent policy layer which is entirely decoupled from the
+networking topology.
+
+This means that all endpoints share a single routable network, i.e. all
+endpoints have the capability of reaching each other using only two routing
+operations: the first routing operation is performed on the origin cluster
+node, the second routing operation is performed on the cluster node of the
+receiving endpoint.
+
 Address Management
-******************
+==================
 
-Building microservices on top of container orchestrations platforms like Docker
-and Kubernetes means that application architects assume the existence of core
-platform capabilities like service discovery and service-based load-balancing
-to map between a logical service identifier and the IP address assigned to the
-containers / pods actually running that service.   This, along with the fact that
-Cilium provides network security and visibility based on container identity,
-not addressing, means that Cilium can keep the underlying network addressing
-model extremely simple.
+The cluster wide address management logic is optimized for simplicity and
+resilience. This is achieved by delegating the address allocation for
+*endpoints* to each individual node in the cluster. Each cluster node is
+assigned a *node address prefix* out of an overarching *cluster address
+prefix* and will allocate IPs for *endpoints* independently.
 
-Cluster IP Prefixes and Container IP Assignment
-===============================================
+This simplifies address handling and allows to make a fundamental assumption:
 
-With Cilium, all containers in the cluster are connected to a single logical
-Layer 3 network, which is associated a single *cluster wide address prefix*.
-This means that all containers or endpoint connected to Cilium share a single
-routable subnet. Hence, all endpoints have the capability of reaching each
-other with two routing operations performed (one routing operation is performed
-on both the origin and destination container host). Cilium supports IPv4 and
-IPv6 addressing in parallel, i.e. each container can be assigned an IPv4 and
-IPv6 address and these addresses can be used exchangeably.
+* No state needs to be synchronized between cluster nodes to allocate IP
+  addresses and to determine whether an IP address belongs to an *endpoint* of
+  the cluster and whether that *endpoint* resides on the local cluster node.
 
-The simplest approach is to use a private address space for the cluster wide
-address prefix. However there are scenarios where choosing a publicly routable
-addresses is preferred, in particular in combination with IPv6 where acquiring
-a large routeable addressing subnet is possible. (See the next section on IP
-Interconnectivity).
 
-Each container host is assigned  a *node prefix* out of the *cluster prefix*
-which is used to allocate IPs for local containers.  Based on this, Cilium is
-capable of deriving the container host IP address of any container and
-automatically create a logical overlay network without further configuration.
-See section *Overlay Routing* for additional details.
+Auto Node Address 
+-----------------
+
+Defaults
+--------
+
+The following values are used by default if the cluster prefix is left
+unspecified. These are meant for testing and need to be adjusted according to
+the needs of your environment.
+
++-------+----------------+--------------------------------------------------+
+| Type  | Cluster        | Node Prefix                                      |
++-------+----------------+--------------------------------------------------+
+| IPv4  | ``10.0.0.0/8`` | ``10.X.0.0/16`` where ``X`` is derived using the |
+|       |                | last 8 bits of the first IPv4 address in the list|
+|       |                | of global scope addresses on the cluster node.   |
++-------+----------------+--------------------------------------------------+
+| IPv6  | ``f00d::/48``  | ``f00d:0:0:0:<ipv4-address>::/96`` where the     |
+|       |                | IPv4 address is the first address in the list of |
+|       |                | global scope addresses on the cluster node.      |
++-------+----------------+--------------------------------------------------+
+
+.. note:: Only 16 bits out of the ``/96`` node prefix are currently used when
+          allocating container addresses. This allows to use the remaining 16
+          bits to store arbitrary connection state when sending packets between
+          nodes. A typical use case for the state is direct server return.
+
+Example
+-------
+
++--------------+---------------+----------------------------------------+
+| Cluster Node | Prefix        | Endpoint addresses                     |
++--------------+---------------+----------------------------------------+
+| node-1       | 10.11.0.0/16  | 10.11.0.7, 10.11.8.105, 10.11.2.9, ... |
++--------------+---------------+----------------------------------------+
+| node-2       | 10.17.0.0/16  | 10.17.4.1, 10.17.4.222, 10.17.2.9, ... |
++--------------+---------------+----------------------------------------+
+
+Routing
+=======
+
 
 
 IPv6 IP Address Assignment
@@ -257,15 +393,6 @@ communication within an isolated environment, the prefix is not publicly
 routable. It is strongly recommended to specify a public prefix owned by the
 user using the ``--node-addr`` option.
 
-If no node address is specified, Cilium will try to generate a unique node
-prefix by using the first global scope IPv4 address as a 32 bit node
-identifier, e.g. ``f00d:0:0:0:<ipv4-address>::/96``. Within that ``/96``
-prefix, each node will independently allocate addresses for local containers.
-
-Note that only 16 bits out of the ``/96`` node prefix are currently used when
-allocating container addresses. This allows to use the remaining 16 bits to
-store arbitrary connection state when sending packets between nodes. A typical
-use for the state is direct server return.
 
 Based on the node prefix, two node addresses are automatically generated by
 replacing the last 32 bits of the address with ``0:0`` and ``0:ffff``
@@ -273,27 +400,6 @@ respectively. The former is used as the next-hop address for the default route
 inside containers, i.e. all packets from a container will be sent to that
 address for further routing. The latter represents the Linux stack and is used
 to reach the local network stack, e.g. Kubernetes health checks.
-
-TODO:  I'd like to know what the logic to assign addresses. Especially, are
-those addresses assigned sequentially? Are they randomly chosen from available
-addresses in the prefix? What is the delay before an IPv6 address is reused? Is
-all that information persisted? Where? Is there really no risk of assigning the
-same IPv6 address twice?
-
-Example
-^^^^^^^
-
-::
-
-    Cluster prefix: f00d::/48
-
-    Node A prefix:  f00d:0:0:0:A:A::/96
-    Node A address: f00d:0:0:0:A:A:0:0/128
-    Container on A: f00d:0:0:0:A:A:0:1111/128
-
-    Node B prefix:  f00d:0:0:0:B:B::/96
-    Node B address: f00d:0:0:0:B:B:0:0/128
-    Container on B: f00d:0:0:0:B:B:0:2222/128
 
 IPv4 IP Address Assignment
 --------------------------
@@ -1096,3 +1202,5 @@ kubernetes master host.
 TODO: insert graphic showing LB + DSR.
 
 
+.. Pod: TBD
+.. PodLabels: TBD
