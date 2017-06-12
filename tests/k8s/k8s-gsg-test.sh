@@ -34,7 +34,7 @@ sed -i s+"cilium/cilium:stable"+"localhost:5000/cilium:build_test"+g cilium-ds.y
 kubectl apply -f cilium-ds.yaml
 
 until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
-	echo "----- Waiting for Cilium to get into 'ready' state in Minikube cluster -----"
+	echo "----- Waiting for Cilium to get into 'ready' state in K8s cluster -----"
 	sleep 5
 done
 
