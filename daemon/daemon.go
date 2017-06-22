@@ -447,7 +447,6 @@ func (d *Daemon) init() error {
 	}
 
 	ipv4Range := nodeaddress.IPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
 	ipv4ClusterRange := nodeaddress.IPv4ClusterRange()
