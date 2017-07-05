@@ -156,7 +156,7 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	case bpfdebug.MessageTypeCapture:
 		captureEvents(prefix, data)
 	default:
-		fmt.Printf("%s Unknonwn event: %+v\n", prefix, msg)
+		fmt.Printf("%s Unknown event: %+v\n", prefix, msg)
 	}
 }
 
