@@ -230,5 +230,5 @@ func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 			filteredLabels[k] = v.DeepCopy()
 		}
 	}
-	return lbls
+	return filteredLabels
 }
