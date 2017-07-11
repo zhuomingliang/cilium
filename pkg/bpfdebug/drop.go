@@ -81,8 +81,12 @@ func dropReason(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
+func (n *DropNotify) DumpInfo(data []byte) {
+	fmt.Printf("DROP: FROM: [ifindex %d / endpoint %d] (%s) %d bytes\n",  n.Ifindex, n.Source, dropReason(n.SubType), n.OrigLen)
+}
+
 // Dump prints the drop notification in human readable form
-func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
+func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
 		prefix, n.Hash, n.Source, n.SubType, dropReason(n.SubType), n.OrigLen, n.Ifindex)
 

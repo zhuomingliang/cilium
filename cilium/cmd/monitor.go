@@ -62,6 +62,7 @@ func init() {
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
 	monitorCmd.Flags().Uint32Var(&toDst, "to", 0, "Filter by destination endpoint id")
 	monitorCmd.Flags().Uint32Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
+	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
 }
 
 var (
@@ -83,7 +84,17 @@ var (
 	fromSource = uint16(0)
 	toDst      = uint32(0)
 	related    = uint32(0)
+	verboseMonitor = false
+	verbosity = bpfdebug.INFO
 )
+
+func setVerbosity() {
+	if verboseMonitor {
+		verbosity = bpfdebug.DEBUG
+	} else {
+		verbosity = bpfdebug.INFO
+	}
+}
 
 func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost.Lost)
@@ -115,7 +126,12 @@ func dropEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDrop, dn.Source, dn.DstID) {
-		dn.Dump(dissect, data, prefix)
+		if verbosity == bpfdebug.VERBOSE {
+			dn.DumpVerbose(dissect, data, prefix)
+		} else {
+			dn.DumpInfo(data)
+		}
+
 	}
 }
 
@@ -127,7 +143,7 @@ func debugEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDebug, dm.Source, 0) {
-		dm.Dump(data, prefix)
+			dm.Dump(data, prefix)
 	}
 }
 
@@ -139,7 +155,11 @@ func captureEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeCapture, dc.Source, 0) {
-		dc.Dump(dissect, data, prefix)
+		if verbosity == bpfdebug.INFO {
+			dc.DumpInfo(data)
+		} else {
+			dc.DumpVerbose(dissect, data, prefix)
+		}
 	}
 }
 
@@ -153,7 +173,10 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	case bpfdebug.MessageTypeDrop:
 		dropEvents(prefix, data)
 	case bpfdebug.MessageTypeDebug:
-		debugEvents(prefix, data)
+		// Only display debug events if verbose output enabled.
+		if verbosity > bpfdebug.INFO {
+			debugEvents(prefix, data)
+		}
 	case bpfdebug.MessageTypeCapture:
 		captureEvents(prefix, data)
 	default:
@@ -176,7 +199,7 @@ func validateEventTypeFilter() {
 
 func runMonitor() {
 	common.RequireRootPrivilege("cilium monitor")
-
+	setVerbosity()
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
 		fmt.Printf("Error: Unable to get BPF events (%s)\n", err)
