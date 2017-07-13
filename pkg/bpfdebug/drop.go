@@ -27,8 +27,10 @@ const (
 	DropNotifyLen = 32
 )
 
+type EndpointInfoCache map[int]*models.Endpoint
+
 var (
-	endpointInfoCache = make(map[int]*models.Endpoint)
+	endpointInfoCache = make(EndpointInfoCache)
 	client, _ = clientPkg.NewClient(viper.GetString("host"))
 )
 // DropNotify is the message format of a drop notification in the BPF ring buffer
@@ -89,40 +91,49 @@ func dropReason(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
-func (n *DropNotify) DumpInfo(data []byte) {
-	var epGet *models.Endpoint
-	var err error
-	if ep, ok := endpointInfoCache[int(n.Source)]; !ok {
-		fmt.Printf("cache miss\n")
-		epGet, err = client.EndpointGet(strconv.Itoa(int(n.Source)))
+// getEndpoint gets the endpoint object mapping to the corresponding eId.
+func (cache EndpointInfoCache) getEndpoint(eId int) (*models.Endpoint, error) {
+	if ep, ok := cache[eId]; !ok {
+		epGet, err := client.EndpointGet(strconv.Itoa(eId))
 		if err != nil {
-			fmt.Printf("\tunable to get information for endpoint %d\n", n.Source)
+			return nil, fmt.Errorf("error retrieving information from Cilium API for endpoint %d\n", eId)
 		}
-		fmt.Printf("\t adding to cache")
-		endpointInfoCache[int(n.Source)] = epGet
+		cache[eId] = epGet
 	} else {
-		fmt.Printf("cache hit\n")
 		if ep.Identity == nil {
-			fmt.Printf("\tendpointInfoCache identity nil - getting it again to see if identity updated\n")
-			epGet, err = client.EndpointGet(strconv.Itoa(int(n.Source)))
+			epGet, err := client.EndpointGet(strconv.Itoa(eId))
 			if err != nil {
-				fmt.Printf("\tunable to get endpoint %d from API server\n", n.Source)
+				return nil, fmt.Errorf("error retrieving information from Cilium API for endpoint %d\n", eId)
 			}
 			if epGet.Identity != nil {
-				fmt.Printf("\tidentity not nil after it was nil, so updating endpoint in cache\n")
-				endpointInfoCache[int(n.Source)] = epGet
+				cache[eId] = epGet
 			}
 		}
 	}
-	ep2 := endpointInfoCache[int(n.Source)]
-	if ep2.Identity == nil {
-		fmt.Printf("identity nil, so not accessing identity\n")
-		fmt.Printf("\t[%v]:%d (nil secID} (%s), srcLabel=%d, dstLabel=%d, dstId=%d\n", ep2.Addressing.IPV4, n.Source, dropReason(n.SubType), n.SrcLabel, n.DstLabel, n.DstID)
+	return cache[eId], nil
+}
+
+func (n *DropNotify) DumpInfo(data []byte) {
+	ep2, err := endpointInfoCache.getEndpoint(int(n.Source))
+	if err != nil {
+		fmt.Printf(err.Error())
 	} else {
-		//fmt.Printf("DROP: FROM: [ifindex %d / endpoint %d] (%s) %d bytes\n",  n.Ifindex, n.Source, dropReason(n.SubType), n.OrigLen)
-		fmt.Printf("\t[%v]:%d (id %d) (%s), , srcLabel=%d, dstLabel=%d, dstId=%d\n", ep2.Identity.Labels, n.Source, ep2.Identity.ID, dropReason(n.SubType), n.SrcLabel, n.DstLabel, n.DstID)
+		if ep2.Identity == nil {
+			fmt.Printf("[%v]:%d (nil secID) %d bytes dropped (%s)\n", ep2.Addressing.IPV4, n.Source, n.OrigLen, dropReason(n.SubType))
+		} else {
+			if n.DstID == 0 {
+				fmt.Printf("[%v]:%d (id %d) > (%d id) %d bytes dropped (%s)\n", ep2.Addressing.IPV4, n.Source, ep2.Identity.ID, n.DstID, n.OrigLen, dropReason(n.SubType))
+			} else {
+				ep3, err := endpointInfoCache.getEndpoint(int(n.DstID))
+				if err != nil {
+					fmt.Printf(err.Error())
+				} else {
+					fmt.Printf("[%v]:%d (%v) > (%v / %d id) %d bytes dropped (%s)\n", ep2.Addressing.IPV4, n.Source, ep2.Identity.ID, ep3.Addressing.IPV4, n.DstID, n.OrigLen, dropReason(n.SubType))
+				}
+			}
+		}
 	}
-	}
+}
 
 // Dump prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
