@@ -33,7 +33,7 @@ var endpointGetCmd = &cobra.Command{
 		if e, err := client.EndpointGet(id); err != nil {
 			Fatalf("Cannot get endpoint %s: %s\n", id, err)
 		} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
-			Fatalf("Cannot marshal endpoing: %s", err.Error())
+			Fatalf("Cannot marshal endpoint: %s", err.Error())
 		} else {
 			fmt.Println(string(b))
 		}

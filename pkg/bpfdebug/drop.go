@@ -16,6 +16,10 @@ package bpfdebug
 
 import (
 	"fmt"
+	clientPkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/api/v1/models"
+	"strconv"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -23,6 +27,10 @@ const (
 	DropNotifyLen = 32
 )
 
+var (
+	endpointInfoCache = make(map[int]*models.Endpoint)
+	client, _ = clientPkg.NewClient(viper.GetString("host"))
+)
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
 	Type     uint8
@@ -82,8 +90,39 @@ func dropReason(reason uint8) string {
 }
 
 func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("DROP: FROM: [ifindex %d / endpoint %d] (%s) %d bytes\n",  n.Ifindex, n.Source, dropReason(n.SubType), n.OrigLen)
-}
+	var epGet *models.Endpoint
+	var err error
+	if ep, ok := endpointInfoCache[int(n.Source)]; !ok {
+		fmt.Printf("cache miss\n")
+		epGet, err = client.EndpointGet(strconv.Itoa(int(n.Source)))
+		if err != nil {
+			fmt.Printf("\tunable to get information for endpoint %d\n", n.Source)
+		}
+		fmt.Printf("\t adding to cache")
+		endpointInfoCache[int(n.Source)] = epGet
+	} else {
+		fmt.Printf("cache hit\n")
+		if ep.Identity == nil {
+			fmt.Printf("\tendpointInfoCache identity nil - getting it again to see if identity updated\n")
+			epGet, err = client.EndpointGet(strconv.Itoa(int(n.Source)))
+			if err != nil {
+				fmt.Printf("\tunable to get endpoint %d from API server\n", n.Source)
+			}
+			if epGet.Identity != nil {
+				fmt.Printf("\tidentity not nil after it was nil, so updating endpoint in cache\n")
+				endpointInfoCache[int(n.Source)] = epGet
+			}
+		}
+	}
+	ep2 := endpointInfoCache[int(n.Source)]
+	if ep2.Identity == nil {
+		fmt.Printf("identity nil, so not accessing identity\n")
+		fmt.Printf("\t[%v]:%d (nil secID} (%s), srcLabel=%d, dstLabel=%d, dstId=%d\n", ep2.Addressing.IPV4, n.Source, dropReason(n.SubType), n.SrcLabel, n.DstLabel, n.DstID)
+	} else {
+		//fmt.Printf("DROP: FROM: [ifindex %d / endpoint %d] (%s) %d bytes\n",  n.Ifindex, n.Source, dropReason(n.SubType), n.OrigLen)
+		fmt.Printf("\t[%v]:%d (id %d) (%s), , srcLabel=%d, dstLabel=%d, dstId=%d\n", ep2.Identity.Labels, n.Source, ep2.Identity.ID, dropReason(n.SubType), n.SrcLabel, n.DstLabel, n.DstID)
+	}
+	}
 
 // Dump prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
