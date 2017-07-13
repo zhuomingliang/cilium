@@ -279,27 +279,64 @@ type DebugCapture struct {
 }
 
 func (n *DebugCapture) DumpInfo(data []byte) {
-	switch n.SubType {
-	case DbgCaptureFromLxc:
-		fmt.Printf("CAPTURE: FROM: [container %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
-	case DbgCaptureFromNetdev:
-		fmt.Printf("CAPTURE: FROM: [netdevice %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
-	case DbgCaptureFromOverlay:
-		fmt.Printf("CAPTURE: FROM: [overlay %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
-	case DbgCaptureDelivery:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [ifindex %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
-	case DbgCaptureFromLb:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d]> TO: [load balancer %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
-	case DbgCaptureAfterV46:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat46 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
-	case DbgCaptureAfterV64:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat64 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
-	case DbgCaptureProxyPre:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Pre) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
-	case DbgCaptureProxyPost:
-		fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Post) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
-	default:
-		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
+	ep, err := endpointInfoCache.getEndpoint(int(n.Source))
+	if err != nil {
+		fmt.Printf(err.Error())
+		return
+	}
+	if ep.Identity != nil {
+		switch n.SubType {
+		case DbgCaptureFromLxc:
+			fmt.Printf("CAPTURE: FROM: [%v]:%d (id %d) %d bytes forwarded\n", ep.Addressing.IPV4, n.Source, ep.Identity.ID, n.OrigLen)
+		case DbgCaptureFromNetdev:
+			fmt.Printf("CAPTURE: FROM: [netdevice %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
+		case DbgCaptureFromOverlay:
+			fmt.Printf("CAPTURE: FROM: [overlay %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
+		case DbgCaptureDelivery:
+			//fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [ifindex %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+			var out uint32
+			if v, ok := ifIndexCache[int64(n.Arg1)]; !ok {
+				out = n.Arg1
+			} else {
+				out = uint32(v.ID)
+			}
+			fmt.Printf("CAPTURE: FROM: [%v]:%d > TO: [ifindex / endpoint %d] %d bytes\n", ep.Addressing.IPV4, n.Source, out, n.OrigLen)
+		case DbgCaptureFromLb:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d]> TO: [load balancer %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureAfterV46:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat46 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureAfterV64:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat64 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureProxyPre:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Pre) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
+		case DbgCaptureProxyPost:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Post) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
+		default:
+			fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
+		}
+	} else {
+		switch n.SubType {
+		case DbgCaptureFromLxc:
+			fmt.Printf("CAPTURE: FROM: [%v]:%d (nil secID) %d bytes forwarded\n", ep.Addressing.IPV4, n.Source, n.OrigLen)
+		case DbgCaptureFromNetdev:
+			fmt.Printf("CAPTURE: FROM: [netdevice %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
+		case DbgCaptureFromOverlay:
+			fmt.Printf("CAPTURE: FROM: [overlay %d / endpoint %d] %d bytes\n", n.Arg1, n.Source, n.OrigLen)
+		case DbgCaptureDelivery:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [ifindex %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureFromLb:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d]> TO: [load balancer %d] %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureAfterV46:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat46 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureAfterV64:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: [endpoint %d] after nat64 %d bytes\n", n.Source, n.Arg1, n.OrigLen)
+		case DbgCaptureProxyPre:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Pre) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
+		case DbgCaptureProxyPost:
+			fmt.Printf("CAPTURE: FROM: [endpoint %d] > TO: proxy port %d (Post) %d bytes\n", n.Source, byteorder.NetworkToHost(uint16(n.Arg1)), n.OrigLen)
+		default:
+			fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
+		}
 	}
 }
 

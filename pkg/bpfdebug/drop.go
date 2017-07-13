@@ -16,10 +16,6 @@ package bpfdebug
 
 import (
 	"fmt"
-	clientPkg "github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/api/v1/models"
-	"strconv"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -27,12 +23,6 @@ const (
 	DropNotifyLen = 32
 )
 
-type EndpointInfoCache map[int]*models.Endpoint
-
-var (
-	endpointInfoCache = make(EndpointInfoCache)
-	client, _ = clientPkg.NewClient(viper.GetString("host"))
-)
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
 	Type     uint8
@@ -89,28 +79,6 @@ func dropReason(reason uint8) string {
 		return err
 	}
 	return fmt.Sprintf("%d", reason)
-}
-
-// getEndpoint gets the endpoint object mapping to the corresponding eId.
-func (cache EndpointInfoCache) getEndpoint(eId int) (*models.Endpoint, error) {
-	if ep, ok := cache[eId]; !ok {
-		epGet, err := client.EndpointGet(strconv.Itoa(eId))
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving information from Cilium API for endpoint %d\n", eId)
-		}
-		cache[eId] = epGet
-	} else {
-		if ep.Identity == nil {
-			epGet, err := client.EndpointGet(strconv.Itoa(eId))
-			if err != nil {
-				return nil, fmt.Errorf("error retrieving information from Cilium API for endpoint %d\n", eId)
-			}
-			if epGet.Identity != nil {
-				cache[eId] = epGet
-			}
-		}
-	}
-	return cache[eId], nil
 }
 
 func (n *DropNotify) DumpInfo(data []byte) {
