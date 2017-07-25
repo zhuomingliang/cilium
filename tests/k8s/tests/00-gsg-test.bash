@@ -54,9 +54,10 @@ kubectl create -f "${K8SDIR}/rbac.yaml"
 
 echo "----- deploying Cilium Daemon Set onto cluster -----"
 cp "${K8SDIR}/cilium-ds-gsg.yaml" ./cilium-ds.yaml
-sed -i s+/var/lib/kubelet/kubeconfig+/etc/kubernetes/kubelet.conf+g cilium-ds.yaml
-sed -i s+/cilium/cilium:stable+localhost:5000/cilium:${DOCKER_IMAGE_TAG}+g cilium-ds.yaml
+# We need to make a few adjustments to the GSG ds to work on the k8s multi node
+# VM
 kubectl create -f cilium-ds.yaml
+patch -p0 "./cilium-ds.yaml" "${GSGDIR}/minikube-gsg-ds-fix.diff"
 
 wait_for_daemon_set_ready ${NAMESPACE} cilium 2
 
