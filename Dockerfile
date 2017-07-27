@@ -2,7 +2,7 @@ FROM ubuntu:16.04
 
 LABEL "Maintainer: Andre Martins <andre@cilium.io>"
 
-ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
+ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key
 
 RUN apt-get update && \
 apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables && \
@@ -59,8 +59,11 @@ rm -r tmp && \
 cd /tmp && \
 curl -Sslk -o go.linux-amd64.tar.gz \
 https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz && \
-tar -C /usr/local -xzf go.linux-amd64.tar.gz && \
-cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
+tar -C /usr/local -xzf go.linux-amd64.tar.gz
+
+ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
+
+RUN cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
 export GOPATH=/tmp/cilium-net-build && \
 export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \
