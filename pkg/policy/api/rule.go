@@ -49,14 +49,14 @@ type Rule struct {
 	// Labels is a list of optional strings which can be used to
 	// re-identify the rule or to store metadata. It is possible to lookup
 	// or delete strings based on labels. Labels are not required to be
-	// unique, multiple rules can have overlapping or identical labels.
+	// unique; multiple rules can have overlapping or identical labels.
 	//
 	// +optional
 	Labels labels.LabelArray `json:"labels,omitempty"`
 
 	// Description is a free form string, it can be used by the creator of
 	// the rule to store human readable explanation of the purpose of this
-	// rule. Rules cannot be identified by comment.
+	// rule. Rules cannot be identified by their description.
 	//
 	// +optional
 	Description string `json:"description,omitempty"`
@@ -85,7 +85,7 @@ type IngressRule struct {
 
 	// FromRequires is a list of additional constraints which must be met
 	// in order for the selected endpoints to be reachable. These
-	// additional constraints do no by itself grant access privileges and
+	// additional constraints do not by themselves grant access privileges and
 	// must always be accompanied with at least one matching FromEndpoints.
 	//
 	// Example:
@@ -165,7 +165,7 @@ type CIDR struct {
 type PortProtocol struct {
 	// Port is an L4 port number. For now the string will be strictly
 	// parsed as a single uint16. In the future, this field may support
-	// ranges in the form "1024-2048
+	// ranges in the form "1024-2048"
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
@@ -180,7 +180,7 @@ type PortProtocol struct {
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
-	// Ports is a list of L4 port/protocol
+	// Ports is a list of L4 port/protocol pairings.
 	//
 	// If omitted or empty but RedirectPort is set, then all ports of the
 	// endpoint subject to either the ingress or egress rule are being
