@@ -432,6 +432,7 @@ func (e *Endpoint) RUnlock() {
 // GetLabels returns the labels as slice
 func (e *Endpoint) GetLabels() []string {
 	if e.SecLabel == nil {
+		log.Debugf("secLabel is nil for this endpoint, so there are no labels")
 		return []string{}
 	}
 
@@ -441,6 +442,7 @@ func (e *Endpoint) GetLabels() []string {
 // GetLabelsSHA returns the SHA of labels
 func (e *Endpoint) GetLabelsSHA() string {
 	if e.SecLabel == nil {
+		log.Debugf("secLabel is nil for this endpoint, so there are no labels to get the SHA")
 		return ""
 	}
 

@@ -239,14 +239,20 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
+			log.Debugf("parseIPPort: ip.String(): %s", ip.String())
 			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
+				log.Debugf("parseIPPort: nodeaddress.GetIPv4ClusterRange().Contains(%s)", ip.String())
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
+				log.Debugf("parseIPPort: parseIPPort: c.String(): %s", c.String())
 				if ep != nil {
+					log.Debugf("parseIPPort: ep not nil, setting fields for EndpointInfo")
 					info.ID = uint64(ep.ID)
 					info.Labels = ep.GetLabels()
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
+				} else {
+					log.Debugf("parseIPPort: ep is nil for address: %s", c.String())
 				}
 			}
 		} else {
@@ -528,6 +534,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		}
 
 		if srcIdentity != 0 {
+			log.Debugf("srcIdentity != 0; setting record.SourceEndpoint.Identity to %d", uint64(srcIdentity))
 			record.SourceEndpoint.Identity = uint64(srcIdentity)
 		}
 
