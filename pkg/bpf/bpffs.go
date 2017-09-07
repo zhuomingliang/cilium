@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -106,6 +107,15 @@ func OpenAfterMount(m *Map) error {
 	return nil
 }
 
+func statDebug(prefix, path string) {
+	var fsdata unix.Statfs_t
+	if err := unix.Statfs(path, &fsdata); err != nil {
+		log.Debugf("%s: fstat failed: %s: %s", prefix, path, err)
+	} else {
+		log.Debugf("%s: %s: %+v", prefix, path, fsdata)
+	}
+}
+
 //isBpffs check if the path is a valid bpf filesystem
 func isBpffs(path string) bool {
 	// This is the value of the BPF Filesystem. If is into the container the
@@ -120,15 +130,21 @@ func isBpffs(path string) bool {
 }
 
 func mountFS() error {
+	statDebug("PRE", mapRoot)
+
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", mapRoot}
 	_, err := exec.Command("mountpoint", args...).CombinedOutput()
 	if err != nil {
+		statDebug("PRE-not-mounted", mapRoot)
 		args = []string{"bpffs", mapRoot, "-t", "bpf"}
 		out, err := exec.Command("mount", args...).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("Command execution failed: %s\n%s", err, out)
 		}
+		statDebug("PRE-wait", mapRoot)
+		time.Sleep(10 * time.Second)
+		statDebug("post-wait", mapRoot)
 	}
 	if !isBpffs(mapRoot) {
 		log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
