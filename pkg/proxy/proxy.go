@@ -232,17 +232,21 @@ func (r *Redirect) localEndpointInfo(info *accesslog.EndpointInfo) {
 	info.LabelsSHA256 = r.source.GetLabelsSHA()
 	info.Identity = uint64(r.source.GetIdentity())
 	r.source.RUnlock()
+	log.Debug("\n MK In localEndpointInfo Endpointinfo ID:", info.ID, "Endpoint.Identity:", info.Identity)
 }
 
 func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	ip := net.ParseIP(ipstr)
+	log.Debug("\n MK In parseIPPort ipstr: ", ipstr)
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
 			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
+				log.Debug("\n MK In parseIPPort GetIPv4ClusterRange pass")
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
+					log.Debug("\n MK In parseIPPort endpointmanager.LookupIPv4 pass")
 					info.ID = uint64(ep.ID)
 					info.Labels = ep.GetLabels()
 					info.LabelsSHA256 = ep.GetLabelsSHA()
@@ -267,12 +271,13 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 			}
 		}
 	}
+	log.Debug("\n MK In parseIPPort RETURNING ipstr: ", ipstr, "Endpointinfo ID:", info.ID, "Endpoint.Identity:", info.Identity)
 }
 
 func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
 	version := accesslog.VersionIPv4
-
+	log.Debug("\n MK In getSourceInfo:\n")
 	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
@@ -288,8 +293,10 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 
 	// At egress, the local origin endpoint is the source
 	if !r.l4.Ingress {
+		log.Debug("\n MK In getSourceInfo !r.l4.Ingress == EGRESS..calling localEndpointInfo \n")
 		r.localEndpointInfo(&info)
 	} else if err == nil {
+		log.Debug("\n MK In getSourceInfo r.l4.Ingress == INGRESS..calling parseIPPort \n")
 		parseIPPort(ipstr, &info)
 	}
 
@@ -298,7 +305,7 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 
 func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 	info := accesslog.EndpointInfo{}
-
+	log.Debug("\n MK In getDestinationInfo:\n")
 	ipstr, port, err := net.SplitHostPort(dstIPPort)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
@@ -309,8 +316,10 @@ func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 
 	// At ingress the local origin endpoint is the source
 	if r.l4.Ingress {
+		log.Debug("\n MK In getDestinationInfo r.l4.Ingress == INGRESS..calling localEndpointInfo \n")
 		r.localEndpointInfo(&info)
 	} else if err == nil {
+		log.Debug("\n MK In getDestinationInfo !r.l4.Ingress == EGRESS..calling parseIPPort \n")
 		parseIPPort(ipstr, &info)
 	}
 
