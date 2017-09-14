@@ -208,7 +208,7 @@ func mountFS() error {
 
 	}
 	if !isBpffs(mapRoot) {
-		log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
+		//log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
 	}
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
