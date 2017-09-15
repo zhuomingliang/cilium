@@ -99,6 +99,7 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
+	GetConsumable() policy.NumericIdentity
 	GetIPv4Address() string
 	GetIPv6Address() string
 	RUnlock()
@@ -244,6 +245,7 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
 				log.Debug("\n MK In parseIPPort GetIPv4ClusterRange pass")
 				c := addressing.DeriveCiliumIPv4(ip)
+				log.Debug("\n MK In parseIPPort addressing.DeriveCiliumIPv4 returns:", c.String())
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
 					log.Debug("\n MK In parseIPPort endpointmanager.LookupIPv4 pass")
@@ -277,7 +279,7 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
 	version := accesslog.VersionIPv4
-	log.Debug("\n MK In getSourceInfo:\n")
+	log.Debug("\n MK In getSourceInfo: r.epID:\n", r.epID, "r.id:", r.id)
 	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
@@ -298,6 +300,7 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 	} else if err == nil {
 		log.Debug("\n MK In getSourceInfo r.l4.Ingress == INGRESS..calling parseIPPort \n")
 		parseIPPort(ipstr, &info)
+
 	}
 
 	return info, version
@@ -421,6 +424,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
+	log.Debug("MK in CreateOrUpdateRedirect with id:", id, "source.GetLabels():", source.GetLabels(), "source.GetID():", source.GetID(), "source.GetIdentity():", source.GetIdentity(), "source.GetIPv4Address():", source.GetIPv4Address())
 	fwd, err := forward.New(forward.RoundTripper(transport))
 	if err != nil {
 		return nil, err
@@ -488,6 +492,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	}
 
 	redir.epID = source.GetID()
+	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable())
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		record := &accesslog.LogRecord{

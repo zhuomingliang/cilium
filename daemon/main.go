@@ -436,6 +436,7 @@ func initEnv() {
 		bpf.SetMapRoot(bpfRoot)
 	}
 
+	log.Debug("MK in initEnv calling bpf.MountFS\n")
 	bpf.MountFS()
 
 	if viper.GetBool("debug") {
@@ -453,6 +454,7 @@ func initEnv() {
 	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
 	config.EnablePolicyMU.Unlock()
 
+	log.Debug("MK in initEnv calling kvstore.Setup\n")
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		log.Fatalf("Unable to setup kvstore: %s", err)
 	}
