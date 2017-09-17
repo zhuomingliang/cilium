@@ -273,14 +273,15 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 			}
 		}
 	}
-	log.Debug("\n MK In parseIPPort RETURNING ipstr: ", ipstr, "Endpointinfo ID:", info.ID, "Endpoint.Identity:", info.Identity)
+	log.Debug("\n MK In parseIPPort RETURNING ipstr: ", ipstr, "info ID:", info.ID, "info.Identity:", info.Identity)
 }
 
 func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
 	version := accesslog.VersionIPv4
-	log.Debug("\n MK In getSourceInfo: r.epID:\n", r.epID, "r.id:", r.id)
+	log.Debug("\n MK In getSourceInfo: r.epID:", r.epID, "r.id:", r.id)
 	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
+	log.Debug("\n MK In getSourceInfo: (remoteAddr)ipstr:", ipstr, "port", port)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
 		if err == nil {
@@ -424,7 +425,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	log.Debug("MK in CreateOrUpdateRedirect with id:", id, "source.GetLabels():", source.GetLabels(), "source.GetID():", source.GetID(), "source.GetIdentity():", source.GetIdentity(), "source.GetIPv4Address():", source.GetIPv4Address())
+	log.Debug("MK in CreateOrUpdateRedirect with id:", id, "  source.GetLabels():", source.GetLabels(), " source.GetID():", source.GetID(), " source.GetIdentity():", source.GetIdentity(), " source.GetIPv4Address():", source.GetIPv4Address())
 	fwd, err := forward.New(forward.RoundTripper(transport))
 	if err != nil {
 		return nil, err
@@ -493,6 +494,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	redir.epID = source.GetID()
 	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable())
+	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetIPv4Address:", source.GetIPv4Address())
+	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetLabels:", source.GetLabels())
+	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetIdentity():", source.GetIdentity())
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		record := &accesslog.LogRecord{
@@ -512,6 +516,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		}
 
 		srcIdentity, dstIPPort, err := lookupNewDest(req, to)
+		log.Debug("\nMK in CreateOrUpdateRedirect AFTER lookupNewDest srcIdentity:", srcIdentity, "dstIPPort:", dstIPPort)
 		if err != nil {
 			// FIXME: What do we do here long term?
 			log.Errorf("%s", err)

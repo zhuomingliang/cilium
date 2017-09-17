@@ -698,7 +698,10 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 
 
 func (e *Endpoint) GetConsumable() policy.NumericIdentity {
-	log.Debug("\nMK in endpoint GetConsumable :%+v",e.Consumable)
+	//cc *ConsumableCache
+	log.Debug("\nMK in endpoint GetConsumable :",(e.Consumable))
+	consumable := e.Consumable
+	consumable.GetConsumableCache(e.SecLabel.ID)
 	if e.SecLabel != nil {
 		return e.SecLabel.ID
 	}

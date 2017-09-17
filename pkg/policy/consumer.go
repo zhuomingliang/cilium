@@ -56,7 +56,7 @@ type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
-	Mutex sync.RWMutex
+		Mutex sync.RWMutex
 	// Labels are the Identity of this consumable
 	Labels *Identity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
@@ -91,6 +91,13 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	}
 
 	return consumable
+}
+
+func (c *Consumable) GetConsumableCache(id NumericIdentity)  {
+	log.Debug("MK in GetConsumableCache for c.ID:",c.ID, "id:",id)
+	log.Debug("MK in GetConsumableCache c.cache: ",c.cache)
+	c.cache.Lookup(id)
+
 }
 
 func (c *Consumable) DeepCopy() *Consumable {
