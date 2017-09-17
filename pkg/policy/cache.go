@@ -15,6 +15,7 @@
 package policy
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"sync"
 )
 
@@ -49,6 +50,10 @@ func (c *ConsumableCache) Lookup(id NumericIdentity) *Consumable {
 	c.cacheMU.RLock()
 	v, _ := c.cache[id]
 	c.cacheMU.RUnlock()
+	log.Debug("\nMK in endpoint Lookup : for ID: ", id, "Consumable returned:", v)
+	if id == 1 || id == 2 {
+		log.Debug("\nMK in endpoint HURRAY Lookup : for ID: ", id, "Consumable returned c.reserved[id]:", c.reserved[id])
+	}
 	return v
 }
 

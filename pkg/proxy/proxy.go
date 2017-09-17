@@ -493,7 +493,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	}
 
 	redir.epID = source.GetID()
-	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable())
 	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetIPv4Address:", source.GetIPv4Address())
 	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetLabels:", source.GetLabels())
 	log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetIdentity():", source.GetIdentity())
@@ -530,6 +529,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			record.SourceEndpoint.Identity = uint64(srcIdentity)
 		}
 
+		log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable(uint64(srcIdentity)))
 		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
 
 		// Validate access to L4/L7 resource

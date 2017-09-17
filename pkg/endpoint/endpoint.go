@@ -696,12 +696,12 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 	return policy.InvalidIdentity
 }
 
-
-func (e *Endpoint) GetConsumable() policy.NumericIdentity {
+func (e *Endpoint) GetConsumable(srcIdentity policy.NumericIdentity) policy.NumericIdentity {
 	//cc *ConsumableCache
-	log.Debug("\nMK in endpoint GetConsumable :",(e.Consumable))
+	log.Debug("\nMK in endpoint GetConsumable :", (e.Consumable))
 	consumable := e.Consumable
-	consumable.GetConsumableCache(e.SecLabel.ID)
+	log.Debug("\nMK in endpoint GetConsumable calling GetConsumableCache : for srcIdentity", srcIdentity)
+	consumable.GetConsumableCache(srcIdentity)
 	if e.SecLabel != nil {
 		return e.SecLabel.ID
 	}
