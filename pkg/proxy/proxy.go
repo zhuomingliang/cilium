@@ -99,7 +99,7 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
-	GetConsumable() policy.NumericIdentity
+	GetConsumable(policy.NumericIdentity) policy.NumericIdentity
 	GetIPv4Address() string
 	GetIPv6Address() string
 	RUnlock()
@@ -529,7 +529,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			record.SourceEndpoint.Identity = uint64(srcIdentity)
 		}
 
-		log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable(uint64(srcIdentity)))
+		log.Debug("\nMK in CreateOrUpdateRedirect calling source.GetConsumable:", source.GetConsumable(policy.NumericIdentity(srcIdentity)))
 		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
 
 		// Validate access to L4/L7 resource
