@@ -52,7 +52,7 @@ func (c *ConsumableCache) Lookup(id NumericIdentity) *Consumable {
 	c.cacheMU.RUnlock()
 	log.Debug("\nMK in endpoint Lookup : for ID: ", id, "Consumable returned:", v)
 	if id == 1 || id == 2 {
-		log.Debug("\nMK in endpoint HURRAY Lookup : for ID: ", id, "Consumable returned c.reserved[id]:", c.reserved[id])
+		log.Debug("\nMK in endpoint HURRAY Lookup : for ID: ", id, "Consumable returned c.reserved:", c.reserved)
 	}
 	return v
 }
