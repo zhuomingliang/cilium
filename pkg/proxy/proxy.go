@@ -540,7 +540,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			return
 		}
 
-		info, version := redir.getSourceInfo(req, srcIdentity)
+		info, version := redir.getSourceInfo(req, policy.NumericIdentity(srcIdentity))
 		record.SourceEndpoint = info
 		record.IPVersion = version
 
