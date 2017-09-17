@@ -696,17 +696,13 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 	return policy.InvalidIdentity
 }
 
-func (e *Endpoint) GetConsumable(srcIdentity policy.NumericIdentity) policy.NumericIdentity {
+func (e *Endpoint) GetConsumable(srcIdentity policy.NumericIdentity) *policy.Identity {
 	//cc *ConsumableCache
 	log.Debug("\nMK in endpoint GetConsumable :", (e.Consumable))
 	consumable := e.Consumable
 	log.Debug("\nMK in endpoint GetConsumable calling GetConsumableCache : for srcIdentity", srcIdentity)
-	consumable.GetConsumableCache(srcIdentity)
-	if e.SecLabel != nil {
-		return e.SecLabel.ID
-	}
-
-	return policy.InvalidIdentity
+	secLabels := consumable.GetConsumableCache(srcIdentity)
+	return secLabels
 }
 
 func (e *Endpoint) directoryPath() string {

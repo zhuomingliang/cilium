@@ -93,11 +93,11 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	return consumable
 }
 
-func (c *Consumable) GetConsumableCache(id NumericIdentity) {
+func (c *Consumable) GetConsumableCache(id NumericIdentity) *Identity {
 	log.Debug("MK in GetConsumableCache for c.ID:", c.ID, "id:", id)
 	log.Debug("MK in GetConsumableCache c.cache: ", c.cache)
-	c.cache.Lookup(id)
-
+	cc := c.cache.Lookup(id)
+	return cc.Labels
 }
 
 func (c *Consumable) DeepCopy() *Consumable {

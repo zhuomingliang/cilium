@@ -99,7 +99,7 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
-	GetConsumable(policy.NumericIdentity) policy.NumericIdentity
+	GetConsumable(policy.NumericIdentity) *policy.Identity
 	GetIPv4Address() string
 	GetIPv6Address() string
 	RUnlock()
@@ -276,7 +276,24 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	log.Debug("\n MK In parseIPPort RETURNING ipstr: ", ipstr, "info ID:", info.ID, "info.Identity:", info.Identity)
 }
 
-func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
+func fillSrcEndpoint(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity, ep ProxySource) {
+	ip := net.ParseIP(ipstr)
+	log.Debug("\n MK In fillSrcEndpoint ipstr: ", ipstr)
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+		} else {
+			info.IPv6 = ip.String()
+		}
+	}
+	secLabel := ep.GetConsumable(srcIdentity)
+	info.Labels = secLabel.Labels.GetModel()
+	info.LabelsSHA256 = secLabel.Labels.SHA256Sum()
+	info.Identity = uint64(srcIdentity)
+	log.Debug("\n MK In fillSrcEndpoint RETURNING ipstr: ", ipstr, "info ID:", info.ID, "info.Identity:", info.Identity)
+}
+
+func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
 	version := accesslog.VersionIPv4
 	log.Debug("\n MK In getSourceInfo: r.epID:", r.epID, "r.id:", r.id)
@@ -299,8 +316,10 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 		log.Debug("\n MK In getSourceInfo !r.l4.Ingress == EGRESS..calling localEndpointInfo \n")
 		r.localEndpointInfo(&info)
 	} else if err == nil {
-		log.Debug("\n MK In getSourceInfo r.l4.Ingress == INGRESS..calling parseIPPort \n")
-		parseIPPort(ipstr, &info)
+		log.Debug("\n MK In getSourceInfo r.l4.Ingress == INGRESS..calling  fillSrcEndpoint srcIdentity :", srcIdentity)
+		if srcIdentity != 0 { //TODO else? parseIPPort?
+			fillSrcEndpoint(ipstr, &info, srcIdentity, r.source)
+		}
 
 	}
 
@@ -504,10 +523,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			NodeAddressInfo: redir.nodeInfo,
 		}
 
-		info, version := redir.getSourceInfo(req)
-		record.SourceEndpoint = info
-		record.IPVersion = version
-
 		if redir.l4.Ingress {
 			record.ObservationPoint = accesslog.Ingress
 		} else {
@@ -524,6 +539,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
+
+		info, version := redir.getSourceInfo(req, srcIdentity)
+		record.SourceEndpoint = info
+		record.IPVersion = version
 
 		if srcIdentity != 0 {
 			record.SourceEndpoint.Identity = uint64(srcIdentity)
