@@ -201,9 +201,18 @@ type PortRule struct {
 
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
-// If none are specified, then no additional port level rules are applied.
+// If none is specified, then no additional port-level rules are applied.
 type L7Rules struct {
-	// HTTP specific rules.
+	// Logging rule. Ensures the traffic to the ports is forwarded at L7 for
+	// the purpose of logging requests and responses into the access log.
+	// The value identifies the L7 protocol. Accepted values: "http".
+	// If any non-logging rule is already defined for the ports, all
+	// logging rules for those ports are ignored.
+	//
+	// +optional
+	Logging string `json:"logging,omitempty"`
+
+	// HTTP-specific rules.
 	//
 	// +optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`

@@ -15,6 +15,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -84,6 +85,9 @@ func (pr PortRule) Validate() error {
 			return err
 		}
 	}
+	if err := pr.Rules.Validate(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -91,22 +95,41 @@ func (pr PortRule) Validate() error {
 // Validate validates a port/protocol pair
 func (pp PortProtocol) Validate() error {
 	if pp.Port == "" {
-		return fmt.Errorf("Port must be specified")
+		return errors.New("port must be specified")
 	}
 
 	p, err := strconv.ParseUint(pp.Port, 0, 16)
 	if err != nil {
-		return fmt.Errorf("Unable to parse port: %s", err)
+		return fmt.Errorf("unable to parse port: %s", err)
 	}
 
 	if p == 0 {
-		return fmt.Errorf("Port cannot be 0")
+		return errors.New("port cannot be 0")
 	}
 
 	switch strings.ToLower(pp.Protocol) {
 	case "", "any", "tcp", "udp":
 	default:
-		return fmt.Errorf("Invalid protocol %q, must be { tcp | udp }", pp.Protocol)
+		return fmt.Errorf("invalid protocol %q, must be { \"tcp\" | \"udp\" | \"any\" }", pp.Protocol)
+	}
+
+	return nil
+}
+
+// Validate validates L7 rules.
+func (r *L7Rules) Validate() error {
+	if r == nil {
+		return nil
+	}
+
+	switch r.Logging {
+	case "", "http":
+	default:
+		return fmt.Errorf("invalid protocol %q in logging rule, must be { \"http\" }", r.Logging)
+	}
+
+	if r.Logging != "" && len(r.HTTP) != 0 {
+		return errors.New("multiple rule types specified in L7 rules")
 	}
 
 	return nil
@@ -116,7 +139,7 @@ func (pp PortProtocol) Validate() error {
 func (cidr CIDR) Validate() error {
 	strCIDR := string(cidr)
 	if strCIDR == "" {
-		return fmt.Errorf("IP must be specified")
+		return errors.New("CIDR prefix IP address must be specified")
 	}
 
 	_, ipnet, err := net.ParseCIDR(strCIDR)
@@ -124,13 +147,13 @@ func (cidr CIDR) Validate() error {
 		// Returns the prefix length as zero if the mask is not continuous.
 		ones, _ := ipnet.Mask.Size()
 		if ones == 0 {
-			return fmt.Errorf("Mask length can not be zero")
+			return errors.New("CIDR prefix length cannot be zero")
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
-			return fmt.Errorf("Unable to parse CIDR: %s", err)
+			return fmt.Errorf("unable to parse CIDR prefix IP address: %s", err)
 		}
 	}
 

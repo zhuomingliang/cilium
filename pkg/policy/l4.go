@@ -28,6 +28,11 @@ type AuxRule struct {
 	Expr string `json:"expr"`
 }
 
+const (
+	// auxRuleExprLogging is the expression used in a logging-only AuxRule.
+	auxRuleExprLogging = "Logging"
+)
+
 type L4Filter struct {
 	// Port is the destination port to allow
 	Port int
@@ -43,8 +48,49 @@ type L4Filter struct {
 	Ingress bool
 }
 
-// CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
-func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, protocol string) L4Filter {
+// createHTTPRule creates an AuxRule based on an api.PortRuleHTTP.
+func createHTTPRule(h api.PortRuleHTTP) AuxRule {
+	r := AuxRule{}
+
+	if h.Path != "" {
+		r.Expr = "PathRegexp(\"" + h.Path + "\")"
+	}
+
+	if h.Method != "" {
+		if r.Expr != "" {
+			r.Expr += " && "
+		}
+		r.Expr += "MethodRegexp(\"" + h.Method + "\")"
+	}
+
+	if h.Host != "" {
+		if r.Expr != "" {
+			r.Expr += " && "
+		}
+		r.Expr += "HostRegexp(\"" + h.Host + "\")"
+	}
+
+	for _, hdr := range h.Headers {
+		s := strings.SplitN(hdr, " ", 2)
+		if r.Expr != "" {
+			r.Expr += " && "
+		}
+		r.Expr += "Header(\""
+		if len(s) == 2 {
+			// Remove ':' in "X-Key: true"
+			key := strings.TrimRight(s[0], ":")
+			r.Expr += key + "\",\"" + s[1]
+		} else {
+			r.Expr += s[0]
+		}
+		r.Expr += "\")"
+	}
+
+	return r
+}
+
+// createL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
+func createL4Filter(rule api.PortRule, port api.PortProtocol, direction string, protocol string) L4Filter {
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 
@@ -60,45 +106,17 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 
 	if rule.Rules != nil {
 		l7rules := []AuxRule{}
-		for _, h := range rule.Rules.HTTP {
-			r := AuxRule{}
+		switch {
+		case rule.Rules.Logging != "":
+			r := AuxRule{Expr: auxRuleExprLogging}
+			l7rules = append(l7rules, r)
 
-			if h.Path != "" {
-				r.Expr = "PathRegexp(\"" + h.Path + "\")"
-			}
-
-			if h.Method != "" {
+		case len(rule.Rules.HTTP) > 0:
+			for _, h := range rule.Rules.HTTP {
+				r := createHTTPRule(h)
 				if r.Expr != "" {
-					r.Expr += " && "
+					l7rules = append(l7rules, r)
 				}
-				r.Expr += "MethodRegexp(\"" + h.Method + "\")"
-			}
-
-			if h.Host != "" {
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "HostRegexp(\"" + h.Host + "\")"
-			}
-
-			for _, hdr := range h.Headers {
-				s := strings.SplitN(hdr, " ", 2)
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "Header(\""
-				if len(s) == 2 {
-					// Remove ':' in "X-Key: true"
-					key := strings.TrimRight(s[0], ":")
-					r.Expr += key + "\",\"" + s[1]
-				} else {
-					r.Expr += s[0]
-				}
-				r.Expr += "\")"
-			}
-
-			if r.Expr != "" {
-				l7rules = append(l7rules, r)
 			}
 		}
 

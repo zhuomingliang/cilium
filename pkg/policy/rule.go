@@ -45,10 +45,10 @@ func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir str
 	fmt := p.Port + "/" + proto
 	v, ok := resMap[fmt]
 	if !ok {
-		resMap[fmt] = CreateL4Filter(r, p, dir, proto)
+		resMap[fmt] = createL4Filter(r, p, dir, proto)
 		return 1
 	}
-	l4Filter := CreateL4Filter(r, p, dir, proto)
+	l4Filter := createL4Filter(r, p, dir, proto)
 	if l4Filter.L7Parser != "" {
 		v.L7Parser = l4Filter.L7Parser
 	}
@@ -83,6 +83,44 @@ func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4
 				found += mergeL4Port(ctx, r, p, dir, "tcp", resMap)
 				found += mergeL4Port(ctx, r, p, dir, "udp", resMap)
 			}
+		}
+	}
+
+	for k, v := range resMap {
+		// If there are any non-"Logging" rules, remove all "Logging" rules.
+		// Otherwise, if there are "Logging" rules, replace them with a single HTTP
+		// rule to redirect the port's traffic to the L7 proxy.
+		var logging, nonLogging bool
+		for _, r := range v.L7Rules {
+			if r.Expr == auxRuleExprLogging {
+				logging = true
+			} else {
+				nonLogging = true
+			}
+			if logging && nonLogging {
+				break
+			}
+		}
+
+		if logging {
+			var newL7Rules []AuxRule
+
+			if nonLogging {
+				// Remove all "Logging" rules.
+				for _, r := range v.L7Rules {
+					if r.Expr != auxRuleExprLogging {
+						newL7Rules = append(newL7Rules, r)
+					}
+				}
+			} else {
+				// Replace all logging rules with a single synthesized rule
+				// that allows all traffic.
+				r := createHTTPRule(api.PortRuleHTTP{Path: ".*"})
+				newL7Rules = append(newL7Rules, r)
+			}
+
+			v.L7Rules = newL7Rules
+			resMap[k] = v
 		}
 	}
 
